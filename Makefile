@@ -6,7 +6,7 @@ dev:
 	@make -j2 dev-backend dev-frontend
 
 dev-backend:
-	cd backend && uvicorn app.main:app --reload --port 8000
+	cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000
 
 dev-frontend:
 	cd frontend && NEXT_PUBLIC_PLAYGROUND_API_MODE=backend NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 pnpm dev
@@ -16,7 +16,7 @@ dev-frontend:
 install: install-backend install-frontend
 
 install-backend:
-	cd backend && pip install -r requirements.txt
+	cd backend && source .venv/bin/activate && pip install -r requirements.txt
 
 install-frontend:
 	cd frontend && pnpm install
@@ -26,7 +26,7 @@ install-frontend:
 lint: lint-backend lint-frontend
 
 lint-backend:
-	cd backend && python3 -m compileall app tests
+	cd backend && source .venv/bin/activate && python3 -m compileall app tests
 
 lint-frontend:
 	cd frontend && pnpm lint
@@ -36,7 +36,7 @@ lint-frontend:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && python3 -m unittest discover tests
+	cd backend && source .venv/bin/activate && python3 -m unittest discover tests
 
 test-frontend:
 	cd frontend && pnpm test

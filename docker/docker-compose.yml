@@ -1,4 +1,16 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bigo_lab
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -14,9 +26,13 @@ services:
       target: backend
     restart: unless-stopped
     depends_on:
+      - postgres
       - redis
     env_file:
       - ../backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/bigo_lab
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
 
@@ -37,4 +53,5 @@ services:
       - "3000:3000"
 
 volumes:
+  postgres_data:
   redis_data:

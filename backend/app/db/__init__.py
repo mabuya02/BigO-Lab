@@ -1,3 +1,3 @@
-from app.db.session import SessionLocal, engine, get_db, init_db
+from sqlalchemy.orm import declarative_base
 
-__all__ = ["SessionLocal", "engine", "get_db", "init_db"]
+Base = declarative_base()

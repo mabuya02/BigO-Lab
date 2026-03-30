@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from app.db.base.base import Base
+from app.db import Base
 from app.utils.helpers import utcnow
 
 

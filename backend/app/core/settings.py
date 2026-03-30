@@ -19,15 +19,17 @@ class Settings(BaseModel):
     debug: bool = True
     api_prefix: str = "/api/v1"
 
-    database_url: str = "sqlite:///./bigo_lab.db"
+    # PostgreSQL
+    database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/bigo_lab"
+
+    # Redis
     redis_url: str = "redis://localhost:6379/0"
     redis_required: bool = False
-    auto_create_tables: bool = False
 
+    # Signing key for shares
     secret_key: str = Field(default="change-this-in-production", min_length=16)
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
 
+    # Execution
     execution_backend: str = "auto"
     execution_queue_backend: str = "auto"
     execution_allow_local_fallback: bool = True
@@ -39,6 +41,7 @@ class Settings(BaseModel):
     execution_output_limit_bytes: int = 32768
     execution_cpu_limit: float = 1.0
 
+    # Rate limiting & caching
     request_max_body_bytes: int = 262144
     request_timing_headers_enabled: bool = True
     rate_limit_enabled: bool = True
@@ -54,6 +57,7 @@ class Settings(BaseModel):
     cache_analysis_ttl_seconds: int = 180
     cache_share_ttl_seconds: int = 300
 
+    # Explanation provider
     explanation_provider: str = "heuristic"
     explanation_allow_fallback: bool = True
     ollama_api_base_url: str = "https://ollama.com/api"
@@ -62,6 +66,7 @@ class Settings(BaseModel):
     ollama_timeout_seconds: float = 20.0
     ollama_temperature: float = 0.2
 
+    # CORS
     cors_allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 
@@ -80,13 +85,10 @@ def get_settings() -> Settings:
         app_version=os.getenv("APP_VERSION", "0.1.0"),
         debug=_as_bool(os.getenv("DEBUG"), True),
         api_prefix=os.getenv("API_PREFIX", "/api/v1"),
-        database_url=os.getenv("DATABASE_URL", "sqlite:///./bigo_lab.db"),
+        database_url=os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/bigo_lab"),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
         redis_required=_as_bool(os.getenv("REDIS_REQUIRED"), False),
-        auto_create_tables=_as_bool(os.getenv("AUTO_CREATE_TABLES"), False),
         secret_key=os.getenv("SECRET_KEY", "change-this-in-production"),
-        jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
-        access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")),
         execution_backend=os.getenv("EXECUTION_BACKEND", "auto"),
         execution_queue_backend=os.getenv("EXECUTION_QUEUE_BACKEND", "auto"),
         execution_allow_local_fallback=_as_bool(os.getenv("EXECUTION_ALLOW_LOCAL_FALLBACK"), True),
