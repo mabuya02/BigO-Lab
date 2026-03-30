@@ -20,7 +20,16 @@ class Settings(BaseModel):
     api_prefix: str = "/api/v1"
 
     # PostgreSQL
-    database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/bigo_lab"
+    db_driver: str = "postgresql+psycopg2"
+    db_host: str = "127.0.0.1"
+    db_port: int = 5432
+    db_name: str = "bigOlab"
+    db_user: str = "mabuya"
+    db_password: str = "millenium"
+
+    @property
+    def database_url(self) -> str:
+        return f"{self.db_driver}://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -85,7 +94,12 @@ def get_settings() -> Settings:
         app_version=os.getenv("APP_VERSION", "0.1.0"),
         debug=_as_bool(os.getenv("DEBUG"), True),
         api_prefix=os.getenv("API_PREFIX", "/api/v1"),
-        database_url=os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/bigo_lab"),
+        db_driver=os.getenv("DB_DRIVER", "postgresql+psycopg2"),
+        db_host=os.getenv("DB_HOST", "127.0.0.1"),
+        db_port=int(os.getenv("DB_PORT", "5432")),
+        db_name=os.getenv("DB_NAME", "bigOlab"),
+        db_user=os.getenv("DB_USER", "mabuya"),
+        db_password=os.getenv("DB_PASSWORD", "millenium"),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
         redis_required=_as_bool(os.getenv("REDIS_REQUIRED"), False),
         secret_key=os.getenv("SECRET_KEY", "change-this-in-production"),
