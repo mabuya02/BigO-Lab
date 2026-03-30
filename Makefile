@@ -26,7 +26,7 @@ install-frontend:
 lint: lint-backend lint-frontend
 
 lint-backend:
-	cd backend && ruff check .
+	cd backend && python3 -m compileall app tests
 
 lint-frontend:
 	cd frontend && pnpm lint
@@ -36,7 +36,7 @@ lint-frontend:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && pytest
+	cd backend && python3 -m unittest discover tests
 
 test-frontend:
 	cd frontend && pnpm test

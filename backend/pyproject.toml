@@ -1,0 +1,18 @@
+[project]
+name = "big-o-playground-backend"
+version = "0.1.0"
+description = "Backend foundation for the Big O Playground platform"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.13,<2.0",
+    "dramatiq[redis]>=1.18,<2.0",
+    "fastapi>=0.115,<1.0",
+    "httpx>=0.27,<1.0",
+    "redis>=5.2,<6.0",
+    "SQLAlchemy>=1.4,<2.1",
+    "uvicorn[standard]>=0.34,<1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

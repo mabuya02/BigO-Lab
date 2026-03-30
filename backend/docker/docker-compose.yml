@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  python-sandbox:
+    image: big-o-playground-python-sandbox:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: ["python", "--version"]
+    network_mode: none

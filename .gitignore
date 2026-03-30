@@ -61,3 +61,4 @@ yarn-error.log*
 *.pem
 .vercel
 build/
+backend/tests/*.db
