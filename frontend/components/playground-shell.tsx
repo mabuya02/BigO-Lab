@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
-import { backendApi, ApiError } from "@/lib/api";
+import { playgroundApi, ApiError } from "@/lib/api";
 import type {
   ComparisonComplexityInput,
   PlaygroundExperimentResponse,
@@ -104,13 +104,13 @@ export function PlaygroundShell() {
 
   const statusQuery = useQuery({
     queryKey: ["playground-status"],
-    queryFn: backendApi.getStatus,
+    queryFn: playgroundApi.getStatus,
     refetchInterval: 20_000,
   });
 
   const presetsQuery = useQuery({
     queryKey: ["presets"],
-    queryFn: backendApi.listPresets,
+    queryFn: playgroundApi.listPresets,
   });
 
   const groupedPresets = useMemo(() => {
@@ -131,7 +131,7 @@ export function PlaygroundShell() {
   }, [applyPreset, presetsQuery.data, selectedPresetSlug]);
 
   const runMutation = useMutation({
-    mutationFn: backendApi.runCode,
+    mutationFn: playgroundApi.runCode,
     onSuccess: (payload) => {
       startTransition(() => {
         publishRun(payload);
@@ -144,7 +144,7 @@ export function PlaygroundShell() {
   });
 
   const explanationMutation = useMutation({
-    mutationFn: backendApi.generateExplanation,
+    mutationFn: playgroundApi.generateExplanation,
     onSuccess: (payload) => {
       startTransition(() => {
         publishExplanation(payload);
@@ -158,7 +158,7 @@ export function PlaygroundShell() {
   });
 
   const comparisonMutation = useMutation({
-    mutationFn: backendApi.compareExperiments,
+    mutationFn: playgroundApi.compareExperiments,
     onSuccess: (payload) => {
       startTransition(() => {
         publishComparison(payload);
@@ -172,7 +172,7 @@ export function PlaygroundShell() {
   });
 
   const experimentMutation = useMutation({
-    mutationFn: backendApi.runExperiment,
+    mutationFn: playgroundApi.runExperiment,
     onSuccess: async (payload) => {
       const previousExperiment = usePlaygroundStore.getState().experimentResponse;
       startTransition(() => {
@@ -220,7 +220,7 @@ export function PlaygroundShell() {
   });
 
   const shareMutation = useMutation({
-    mutationFn: backendApi.createShare,
+    mutationFn: playgroundApi.createShare,
     onSuccess: (payload) => {
       startTransition(() => {
         publishShare(payload);
@@ -289,6 +289,7 @@ export function PlaygroundShell() {
                 <p className="mt-1 font-medium text-[#1d211d]">{statusQuery.data?.backend_status.memory_limit_mb ?? 0} MB</p>
               </div>
             </div>
+            {statusQuery.data?.description ? <p className="text-xs text-[#6a6c63]">{statusQuery.data.description}</p> : null}
             {feedback ? <p className="text-xs text-[#6a6c63]">{feedback}</p> : null}
           </div>
         </header>
