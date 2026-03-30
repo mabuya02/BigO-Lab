@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 .PHONY: dev dev-backend dev-frontend install install-backend install-frontend lint lint-backend lint-frontend test test-backend test-frontend build build-frontend docker-build docker-up docker-down clean
 
 # ── Development ──

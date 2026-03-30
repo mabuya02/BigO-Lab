@@ -11,7 +11,6 @@ from app.utils.constants import DEFAULT_EXPERIMENT_STATUS, DEFAULT_LANGUAGE
 
 class ExperimentCreate(APIModel):
     name: str = Field(min_length=1, max_length=160)
-    snippet_id: str | None = None
     language: str = Field(default=DEFAULT_LANGUAGE, min_length=2, max_length=50)
     input_kind: str = Field(default="array", min_length=2, max_length=50)
     input_profile: str | None = Field(default=None, max_length=80)
@@ -28,9 +27,6 @@ class ExperimentCreate(APIModel):
 
 class ExperimentRead(TimestampedModel):
     id: str
-    project_id: str
-    snippet_id: str | None
-    created_by_id: str
     name: str
     language: str
     status: str = DEFAULT_EXPERIMENT_STATUS
