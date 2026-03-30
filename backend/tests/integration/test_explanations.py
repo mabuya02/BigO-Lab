@@ -3,20 +3,11 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from fastapi.testclient import TestClient
-
-from app.api.routes import explanations
-from app.main import create_app
-from app.schemas.complexity import ComplexityEstimateRead, ComplexityFitRead
-from tests.helpers import reset_database
+from tests.helpers import get_client
 
 
 class ExplanationApiTests(unittest.TestCase):
     def test_generate_explanation(self) -> None:
-        reset_database()
-        app = create_app()
-        app.include_router(explanations.router, prefix="/api/v1")
-
         payload = {
             "metrics_snapshot": {
                 "summary": {
@@ -94,7 +85,7 @@ class ExplanationApiTests(unittest.TestCase):
             "max_sections": 5,
         }
 
-        with TestClient(app) as client:
+        with get_client() as client:
             response = client.post("/api/v1/explanations/generate", json=payload)
 
             self.assertEqual(response.status_code, 200)

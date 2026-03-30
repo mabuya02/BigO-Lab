@@ -6,7 +6,6 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.core.settings import get_settings
-from app.db.session import check_database
 from app.services.health_service import check_redis
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -26,10 +25,6 @@ def ready() -> JSONResponse:
     settings = get_settings()
 
     checks = {
-        "database": {
-            "ok": check_database(),
-            "required": False,
-        },
         "redis": {
             "ok": check_redis(settings.redis_url),
             "required": settings.redis_required,
