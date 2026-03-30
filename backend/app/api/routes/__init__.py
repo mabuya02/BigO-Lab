@@ -1,3 +1,6 @@
-from app.api.routes import auth, execution, experiments, health, projects, snippets
+"""Route package for the active stateless API surface.
 
-__all__ = ["auth", "execution", "experiments", "health", "projects", "snippets"]
+This module stays intentionally empty so importing a single route module does
+not pull in legacy SQLAlchemy-backed routes during application startup.
+"""
+

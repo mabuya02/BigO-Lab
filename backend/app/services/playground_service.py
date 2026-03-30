@@ -15,9 +15,67 @@ from app.schemas.execution import (
     ExecutionBackendStatus,
 )
 from app.services.complexity_service import ComplexityService
-from app.schemas.metrics import ExperimentMetricsSnapshot
+from app.schemas.metrics import ExperimentMetricsSnapshot, FunctionMetricCreate, LineMetricCreate
 from app.services.execution_service import ExecutionService
-from app.services.metrics_service import MetricsService
+
+
+def _build_line_metrics_from_instrumentation(
+    execution_result: CodeExecutionResult,
+) -> list[LineMetricCreate]:
+    instrumentation = execution_result.instrumentation
+    if instrumentation is None:
+        return []
+
+    loop_iterations_by_line: dict[int, int] = {}
+    for loop_key, count in instrumentation.loop_iteration_counts.items():
+        _, _, line_fragment = loop_key.rpartition("@")
+        line_number_raw = line_fragment.split(":", 1)[0]
+        try:
+            line_number = int(line_number_raw)
+        except ValueError:
+            continue
+        loop_iterations_by_line[line_number] = loop_iterations_by_line.get(line_number, 0) + int(count)
+
+    total_line_executions = sum(instrumentation.line_counts.values()) or 1
+    metrics: list[LineMetricCreate] = []
+    for line_number in instrumentation.line_numbers:
+        execution_count = int(instrumentation.line_counts.get(line_number, 0))
+        metrics.append(
+            LineMetricCreate(
+                line_number=line_number,
+                execution_count=execution_count,
+                total_time_ms=0.0,
+                percentage_of_total=execution_count / total_line_executions,
+                nesting_depth=0,
+                loop_iterations=loop_iterations_by_line.get(line_number, 0),
+                branch_visits=0,
+            )
+        )
+    return metrics
+
+
+def _build_function_metrics_from_instrumentation(
+    execution_result: CodeExecutionResult,
+) -> list[FunctionMetricCreate]:
+    instrumentation = execution_result.instrumentation
+    if instrumentation is None:
+        return []
+
+    metrics: list[FunctionMetricCreate] = []
+    for qualified_name, count in sorted(instrumentation.function_call_counts.items()):
+        function_name = qualified_name.split(".")[-1]
+        metrics.append(
+            FunctionMetricCreate(
+                function_name=function_name,
+                qualified_name=qualified_name,
+                call_count=int(count),
+                total_time_ms=0.0,
+                self_time_ms=0.0,
+                max_depth=max(qualified_name.count("."), 0),
+                is_recursive=False,
+            )
+        )
+    return metrics
 
 
 class PlaygroundRunResponse(APIModel):
@@ -120,8 +178,8 @@ class PlaygroundService:
                             memory_limit_mb=memory_limit_mb,
                         )
                     )
-                    line_metrics = MetricsService.build_line_metrics_from_instrumentation(execution)
-                    function_metrics = MetricsService.build_function_metrics_from_instrumentation(execution)
+                    line_metrics = _build_line_metrics_from_instrumentation(execution)
+                    function_metrics = _build_function_metrics_from_instrumentation(execution)
                     runs.append(
                         PlaygroundExperimentRun(
                             input_size=generated_input.input_size,
