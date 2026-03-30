@@ -247,31 +247,70 @@ export function BottomPanel({
                    {summary.dominant_line_number ? (
                      <div className="mt-4 relative z-10">
                        <p className="text-sm text-gray-300 leading-relaxed">
-                         Execution limits are heavily concentrated at <strong className="text-white bg-white/10 px-1.5 py-0.5 rounded ml-1 cursor-help hover:ring-1 hover:ring-white/20 transition-all font-mono text-[11px]" title={`Trace Focus: Line ${summary.dominant_line_number}`}>Line {summary.dominant_line_number}</strong>.  
+                         Most execution work is concentrated at <strong className="text-white bg-white/10 px-1.5 py-0.5 rounded ml-1 cursor-help hover:ring-1 hover:ring-white/20 transition-all font-mono text-[11px]" title={`Hotspot: Line ${summary.dominant_line_number}`}>Line {summary.dominant_line_number}</strong> — it accounts for the largest share of total line executions.  
                        </p>
                        <div className="mt-4 bg-[#121212] rounded-lg border border-white/5 p-4 flex flex-col gap-1.5 shadow-inner">
-                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Total Matrix AST Hints</span>
-                          <span className="text-[#007aff] font-mono text-xl tracking-tight leading-none">{summary.total_line_executions.toLocaleString()} <span className="text-xs text-gray-500 font-sans tracking-normal uppercase ml-1">Volume</span></span>
+                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Total Line Executions</span>
+                          <span className="text-[#007aff] font-mono text-xl tracking-tight leading-none">{summary.total_line_executions.toLocaleString()} <span className="text-xs text-gray-500 font-sans tracking-normal uppercase ml-1">hits</span></span>
+                       </div>
+                       <div className="mt-3 bg-[#121212] rounded-lg border border-white/5 p-4 flex flex-col gap-1.5 shadow-inner">
+                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Total Function Calls</span>
+                          <span className="text-purple-400 font-mono text-xl tracking-tight leading-none">{summary.total_function_calls.toLocaleString()} <span className="text-xs text-gray-500 font-sans tracking-normal uppercase ml-1">calls</span></span>
                        </div>
                      </div>
                    ) : (
-                     <p className="text-sm text-gray-500 italic mt-4 py-3 border border-dashed border-white/10 rounded-lg text-center bg-[#121212]">Tracer offline. Re-run trace.</p>
+                     <p className="text-sm text-gray-500 italic mt-4 py-3 border border-dashed border-white/10 rounded-lg text-center bg-[#121212]">No instrumentation data. Enable &quot;Instrument Execution&quot; in Experiment settings and re-run.</p>
                    )}
                  </div>
 
                  <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-5 shadow-sm">
                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ffc01e] mb-2 border-b border-white/5 pb-3">Growth Interpretation</p>
                    <ul className="space-y-4 mt-4 text-xs leading-relaxed text-gray-400">
-                     <li className="flex gap-2.5 relative">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#ffc01e] mt-1.5 shrink-0 opacity-80"></span>
-                        <span>
-                          As input vectors multiply uniformly, scan the physical <strong>&quot;effort&quot; delta</strong> bounds above.
-                        </span>
-                     </li>
-                     <li className="flex gap-2.5 relative">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#00b8a3] mt-1.5 shrink-0 opacity-80"></span>
-                        <span>A recurring `+4.0x effect` scalar across doublings signifies mechanically that work bounds exhibit quadratic trajectory constraints.</span>
-                     </li>
+                     {(() => {
+                       const ratios = points.slice(1).map((p, i) => ({
+                         from: points[i].input_size,
+                         to: p.input_size,
+                         ratio: points[i].value > 0 ? p.value / points[i].value : 0,
+                       }));
+                       const avgRatio = ratios.length > 0 ? ratios.reduce((s, r) => s + r.ratio, 0) / ratios.length : 0;
+                       const complexityClass = experimentResponse.complexity_estimate?.estimated_class ?? "unknown";
+                       const confidence = experimentResponse.complexity_estimate?.confidence ?? 0;
+                       
+                       const insights: string[] = [];
+                       
+                       if (avgRatio < 1.3) {
+                         insights.push(`Operations grow slowly (avg ${avgRatio.toFixed(2)}x per step), consistent with sub-linear or constant behavior.`);
+                       } else if (avgRatio < 2.2) {
+                         insights.push(`Operations grow at ~${avgRatio.toFixed(2)}x per step, suggesting roughly linear scaling.`);
+                       } else if (avgRatio < 5) {
+                         insights.push(`Operations grow at ~${avgRatio.toFixed(2)}x per step, suggesting super-linear (possibly n·log n) scaling.`);
+                       } else {
+                         insights.push(`Operations grow at ~${avgRatio.toFixed(1)}x per step, indicating quadratic or worse scaling.`);
+                       }
+                       
+                       if (complexityClass !== "unknown") {
+                         insights.push(`The complexity estimator fitted ${complexityClass} with ${Math.round(confidence * 100)}% confidence based on ${points.length} data points.`);
+                       }
+                       
+                       if (ratios.length >= 2) {
+                         const first = ratios[0];
+                         const last = ratios[ratios.length - 1];
+                         if (last.ratio > first.ratio * 1.5) {
+                           insights.push(`Growth is accelerating — the effort multiplier climbed from ${first.ratio.toFixed(2)}x to ${last.ratio.toFixed(2)}x as N increased.`);
+                         } else if (last.ratio < first.ratio * 0.7) {
+                           insights.push(`Growth rate is decelerating — overhead amortizes at larger N (${first.ratio.toFixed(2)}x → ${last.ratio.toFixed(2)}x).`);
+                         } else {
+                           insights.push(`Growth rate is stable across steps (${first.ratio.toFixed(2)}x → ${last.ratio.toFixed(2)}x), consistent with uniform scaling.`);
+                         }
+                       }
+                       
+                       return insights.map((text, idx) => (
+                         <li key={idx} className="flex gap-2.5 relative">
+                           <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 opacity-80 ${idx === 0 ? "bg-[#ffc01e]" : "bg-[#00b8a3]"}`}></span>
+                           <span>{text}</span>
+                         </li>
+                       ));
+                     })()}
                    </ul>
                  </div>
               </div>

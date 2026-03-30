@@ -93,7 +93,7 @@ export function PlaygroundShell() {
     mutationFn: playgroundApi.runExperiment,
     onSuccess: async (payload) => {
       const previousExperiment = usePlaygroundStore.getState().experimentResponse;
-      startTransition(() => { publishExperiment(payload); setField("activeTab", "console"); });
+      startTransition(() => { publishExperiment(payload); setField("activeTab", "runtime"); });
 
       const requests: Promise<unknown>[] = [];
       if (payload.complexity_estimate) {
@@ -268,7 +268,7 @@ export function PlaygroundShell() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-hidden bg-[#1e1e1e]">
-                  <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} />
+                  <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} complexityEstimate={experimentResponse?.complexity_estimate ?? null} />
                 </div>
               </Panel>
 

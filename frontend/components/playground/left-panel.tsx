@@ -321,15 +321,17 @@ export function LeftPanel({
                     </div>
                     
                     <p className="mt-2 text-[10px] text-[#ffc01e]/70 leading-normal">
-                      {metric.percentage_of_total > 0.5 
-                        ? `Dominates performance bounds by trapping thread execution iteratively within nesting level ${metric.nesting_depth}.`
-                        : `A significant workload bottleneck scaling proportional to the primary loop bounds.`}
+                      {metric.loop_iterations > 0
+                        ? `Loop line executing ${metric.loop_iterations.toLocaleString()} iterations — accounts for ${(metric.percentage_of_total * 100).toFixed(0)}% of total work at nesting level ${metric.nesting_depth}.`
+                        : metric.percentage_of_total > 0.3
+                        ? `Hot path: ${metric.total_execution_count.toLocaleString()} executions (${(metric.percentage_of_total * 100).toFixed(0)}% of total). Consider optimizing this line.`
+                        : `Contributes ${(metric.percentage_of_total * 100).toFixed(1)}% of total execution count (${metric.total_execution_count.toLocaleString()} hits).`}
                     </p>
                   </div>
                 ))}
                 {!lineMetrics.length && (
                   <div className="py-6 text-center text-sm text-gray-500 italic bg-[#121212] rounded-lg border border-dashed border-white/10">
-                    Tracer pipeline sleeping. Enable instrumentation via Experiment settings.
+                    No hotspot data yet. Enable instrumentation and submit an experiment.
                   </div>
                 )}
               </div>
@@ -357,7 +359,9 @@ export function LeftPanel({
                        </div>
                     </div>
                     <p className="mt-2 text-[10px] text-[#007aff]/70 leading-normal text-center w-full">
-                       {metric.is_recursive ? "Absorbs most work due to highly branched recursive calls." : "Iterative procedure accumulating heavy execution volume."}
+                       {metric.is_recursive 
+                         ? `Recursive — ${metric.total_call_count.toLocaleString()} calls, max depth ${metric.max_depth}. Self time ${metric.self_time_ms.toFixed(2)}ms.`
+                         : `Called ${metric.total_call_count.toLocaleString()} times. Self time ${metric.self_time_ms.toFixed(2)}ms (${metric.total_time_ms > 0 ? Math.round(metric.self_time_ms / metric.total_time_ms * 100) : 0}% of total).`}
                     </p>
                   </div>
                 ))}

@@ -4,7 +4,7 @@ import type { Monaco, OnMount } from "@monaco-editor/react";
 import dynamic from "next/dynamic";
 import { useDeferredValue, useEffect, useRef } from "react";
 
-import type { AggregatedLineMetric } from "@/lib/types";
+import type { AggregatedLineMetric, ComplexityEstimate } from "@/lib/types";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -15,10 +15,65 @@ function heatClassName(intensity: number) {
   return "line-heat-1";
 }
 
+/**
+ * Derive per-line complexity from actual execution counts across input sizes.
+ * The `metric.loop_iterations` and `metric.total_execution_count` give us a
+ * data-driven signal about how much work each line is doing:
+ *  - Lines with zero loop iterations are constant-time accesses → O(1)
+ *  - Lines inside loops scale with the execution count relative to total work
+ *  - The overall experiment complexity estimate gives the dominant class
+ */
+function deriveLineComplexity(
+  metric: AggregatedLineMetric,
+  maxExecCount: number,
+  overallComplexity: string | null,
+): { label: string; cssClass: string } {
+  // If line was never executed, no label
+  if (metric.total_execution_count === 0) {
+    return { label: "", cssClass: "" };
+  }
+
+  const ratio = metric.total_execution_count / maxExecCount;
+
+  // Lines with loop iterations that dominate execution → show the overall complexity
+  if (metric.loop_iterations > 0 && ratio >= 0.5 && overallComplexity) {
+    const normalized = overallComplexity.replace(/\s+/g, "").toUpperCase();
+    if (normalized.includes("N^2") || normalized.includes("N²")) {
+      return { label: "O(N²)", cssClass: "complexity-label complexity-o-n2" };
+    }
+    if (normalized.includes("N^3") || normalized.includes("N³")) {
+      return { label: "O(N³)", cssClass: "complexity-label complexity-o-n3" };
+    }
+    if (normalized.includes("NLOGN") || normalized.includes("N LOG N")) {
+      return { label: "O(N·log N)", cssClass: "complexity-label complexity-o-n" };
+    }
+    if (normalized.includes("LOGN") || normalized.includes("LOG N")) {
+      return { label: "O(log N)", cssClass: "complexity-label complexity-o-1" };
+    }
+    if (normalized.includes("2^N")) {
+      return { label: "O(2ᴺ)", cssClass: "complexity-label complexity-o-n4" };
+    }
+    if (normalized === "O(N)" || normalized === "O(N)") {
+      return { label: "O(N)", cssClass: "complexity-label complexity-o-n" };
+    }
+    // Fallback: show the raw estimated class
+    return { label: overallComplexity, cssClass: "complexity-label complexity-o-n" };
+  }
+
+  // Lines with loop iterations but lower share → they're linear contributors
+  if (metric.loop_iterations > 0) {
+    return { label: "O(N)", cssClass: "complexity-label complexity-o-n" };
+  }
+
+  // Non-loop lines
+  return { label: "O(1)", cssClass: "complexity-label complexity-o-1" };
+}
+
 interface MonacoSurfaceProps {
   code: string;
   onChange: (next: string) => void;
   lineMetrics: AggregatedLineMetric[];
+  complexityEstimate?: ComplexityEstimate | null;
 }
 
 function syncDecorations(
@@ -26,6 +81,7 @@ function syncDecorations(
   monaco: Monaco | null,
   metrics: AggregatedLineMetric[],
   currentDecorationIds: string[],
+  overallComplexity: string | null,
 ) {
   if (!editor || !monaco) {
     return currentDecorationIds;
@@ -40,29 +96,11 @@ function syncDecorations(
   const nextDecorations = metrics
     .filter((metric) => metric.line_number <= model.getLineCount())
     .map((metric) => {
-      // Heuristic to display time complexity equation per line
-      let complexityEq = "";
-      let complexityClass = "";
-      
-      if (metric.total_execution_count > 0) {
-        if (metric.nesting_depth === 0) {
-          complexityEq = "O(1)";
-          complexityClass = "complexity-label complexity-o-1";
-        } else if (metric.nesting_depth === 1) {
-          complexityEq = "O(N)";
-          complexityClass = "complexity-label complexity-o-n";
-        } else if (metric.nesting_depth === 2) {
-          complexityEq = "O(N²)";
-          complexityClass = "complexity-label complexity-o-n2";
-        } else if (metric.nesting_depth === 3) {
-          complexityEq = "O(N³)";
-          complexityClass = "complexity-label complexity-o-n3";
-        } else {
-          // Cap rendering at O(N^4) for generic display constraints
-          complexityEq = "O(N⁴)";
-          complexityClass = "complexity-label complexity-o-n4";
-        }
-      }
+      const { label: complexityEq, cssClass: complexityClass } = deriveLineComplexity(
+        metric,
+        maxExecutionCount,
+        overallComplexity,
+      );
       
       const combinedClassName = [
         heatClassName(metric.total_execution_count / maxExecutionCount),
@@ -76,7 +114,7 @@ function syncDecorations(
           className: combinedClassName,
           glyphMarginClassName: "line-glyph-hot",
           glyphMarginHoverMessage: {
-            value: `Executions: ${metric.total_execution_count}\nLoop iterations: ${metric.loop_iterations}\nEstimated Complexity: ${complexityEq || "N/A"}`,
+            value: `Executions: ${metric.total_execution_count.toLocaleString()}\nLoop iterations: ${metric.loop_iterations.toLocaleString()}\nLine complexity: ${complexityEq || "N/A"}${overallComplexity ? `\nOverall: ${overallComplexity}` : ""}`,
           },
         },
       };
@@ -85,11 +123,12 @@ function syncDecorations(
   return editor.deltaDecorations(currentDecorationIds, nextDecorations);
 }
 
-export function MonacoSurface({ code, onChange, lineMetrics }: MonacoSurfaceProps) {
+export function MonacoSurface({ code, onChange, lineMetrics, complexityEstimate }: MonacoSurfaceProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const decorationIdsRef = useRef<string[]>([]);
   const deferredLineMetrics = useDeferredValue(lineMetrics);
+  const estimatedClass = complexityEstimate?.estimated_class ?? null;
 
   useEffect(() => {
     decorationIdsRef.current = syncDecorations(
@@ -97,8 +136,9 @@ export function MonacoSurface({ code, onChange, lineMetrics }: MonacoSurfaceProp
       monacoRef.current,
       deferredLineMetrics,
       decorationIdsRef.current,
+      estimatedClass,
     );
-  }, [deferredLineMetrics]);
+  }, [deferredLineMetrics, estimatedClass]);
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -115,7 +155,7 @@ export function MonacoSurface({ code, onChange, lineMetrics }: MonacoSurfaceProp
       renderLineHighlight: "gutter",
       scrollBeyondLastLine: false,
     });
-    decorationIdsRef.current = syncDecorations(editor, monaco, deferredLineMetrics, decorationIdsRef.current);
+    decorationIdsRef.current = syncDecorations(editor, monaco, deferredLineMetrics, decorationIdsRef.current, estimatedClass);
   };
 
   return (
