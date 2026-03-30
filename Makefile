@@ -1,4 +1,4 @@
-.PHONY: dev dev-backend dev-frontend install install-backend install-frontend lint lint-backend lint-frontend test test-backend test-frontend build build-frontend clean
+.PHONY: dev dev-backend dev-frontend install install-backend install-frontend lint lint-backend lint-frontend test test-backend test-frontend build build-frontend docker-build docker-up docker-down clean
 
 # ── Development ──
 
@@ -47,6 +47,17 @@ build: build-frontend
 
 build-frontend:
 	cd frontend && pnpm build
+
+# ── Docker ──
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up --build
+
+docker-down:
+	docker compose down
 
 # ── Cleanup ──
 

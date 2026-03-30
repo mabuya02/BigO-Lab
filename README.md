@@ -31,6 +31,22 @@ The frontend supports two modes:
 
 See [`frontend/.env.example`](frontend/.env.example).
 
+## Docker
+
+The repo now uses a single root `Dockerfile` and a single root `docker-compose.yml`.
+
+```bash
+make docker-up
+```
+
+That starts:
+
+- frontend on `http://localhost:3000`
+- backend on `http://localhost:8000`
+- redis on `localhost:6379`
+
+The Compose stack defaults the backend to `EXECUTION_BACKEND=local` so the containerized app runs cleanly without Docker-in-Docker.
+
 ## Ollama Cloud Explanations
 
 The backend explanation endpoint supports an Ollama Cloud provider with heuristic fallback.

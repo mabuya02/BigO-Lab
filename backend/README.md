@@ -61,5 +61,5 @@ If Ollama Cloud fails and fallback is enabled, the backend returns the built-in 
 Build the sandbox image before using Docker-backed execution:
 
 ```bash
-docker build -f docker/Dockerfile -t big-o-playground-python-sandbox:latest .
+docker build --target sandbox -t big-o-playground-python-sandbox:latest .
 ```

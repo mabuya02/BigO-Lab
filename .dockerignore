@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+.idea
+.vscode
+
+backend/.venv
+backend/__pycache__
+backend/tests/__pycache__
+backend/bigo_lab.db
+backend/tests/*.db
+
+frontend/.next
+frontend/node_modules
+
+deploy
