@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-
-from app.api.dependencies import get_current_user
-from app.models import User
+from fastapi import APIRouter, HTTPException, status
 from app.schemas.execution import (
     CodeExecutionJob,
     CodeExecutionRequest,
@@ -21,10 +18,7 @@ def execution_status() -> ExecutionBackendStatus:
 
 
 @router.post("/run", response_model=CodeExecutionResult)
-def run_code(
-    payload: CodeExecutionRequest,
-    _: User = Depends(get_current_user),
-) -> CodeExecutionResult:
+def run_code(payload: CodeExecutionRequest) -> CodeExecutionResult:
     try:
         return ExecutionService.run_code(payload)
     except RuntimeError as exc:
@@ -32,19 +26,13 @@ def run_code(
 
 
 @router.post("/jobs", response_model=CodeExecutionJob, status_code=status.HTTP_202_ACCEPTED)
-def queue_code_execution(
-    payload: CodeExecutionRequest,
-    current_user: User = Depends(get_current_user),
-) -> CodeExecutionJob:
+def queue_code_execution(payload: CodeExecutionRequest) -> CodeExecutionJob:
     try:
-        return ExecutionService.submit_job(payload, current_user.id)
+        return ExecutionService.submit_job(payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
 @router.get("/jobs/{job_id}", response_model=CodeExecutionJob)
-def get_execution_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user),
-) -> CodeExecutionJob:
-    return ExecutionService.get_job(job_id, current_user.id)
+def get_execution_job(job_id: str) -> CodeExecutionJob:
+    return ExecutionService.get_job(job_id)

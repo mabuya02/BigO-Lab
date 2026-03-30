@@ -3,13 +3,12 @@ from __future__ import annotations
 import time
 import unittest
 
-from tests.helpers import auth_headers, get_client
+from tests.helpers import get_client
 
 
 class ExecutionApiTests(unittest.TestCase):
     def test_run_code_sync(self) -> None:
         with get_client() as client:
-            headers = auth_headers(client)
             response = client.post(
                 "/api/v1/execution/run",
                 json={
@@ -17,7 +16,6 @@ class ExecutionApiTests(unittest.TestCase):
                     "stdin": "",
                     "backend": "local",
                 },
-                headers=headers,
             )
             self.assertEqual(response.status_code, 200)
             payload = response.json()
@@ -28,7 +26,6 @@ class ExecutionApiTests(unittest.TestCase):
 
     def test_run_code_with_instrumentation(self) -> None:
         with get_client() as client:
-            headers = auth_headers(client)
             response = client.post(
                 "/api/v1/execution/run",
                 json={
@@ -44,7 +41,6 @@ class ExecutionApiTests(unittest.TestCase):
                     "backend": "local",
                     "instrument": True,
                 },
-                headers=headers,
             )
             self.assertEqual(response.status_code, 200)
             payload = response.json()
@@ -57,7 +53,6 @@ class ExecutionApiTests(unittest.TestCase):
 
     def test_run_code_timeout(self) -> None:
         with get_client() as client:
-            headers = auth_headers(client)
             response = client.post(
                 "/api/v1/execution/run",
                 json={
@@ -65,7 +60,6 @@ class ExecutionApiTests(unittest.TestCase):
                     "timeout_seconds": 1,
                     "backend": "local",
                 },
-                headers=headers,
             )
             self.assertEqual(response.status_code, 200)
             payload = response.json()
@@ -74,14 +68,12 @@ class ExecutionApiTests(unittest.TestCase):
 
     def test_queue_execution_job_and_poll_result(self) -> None:
         with get_client() as client:
-            headers = auth_headers(client)
             submit_response = client.post(
                 "/api/v1/execution/jobs",
                 json={
                     "code": "print('queued execution complete')\n",
                     "backend": "local",
                 },
-                headers=headers,
             )
             self.assertEqual(submit_response.status_code, 202)
             job_id = submit_response.json()["job_id"]
@@ -90,7 +82,6 @@ class ExecutionApiTests(unittest.TestCase):
             for _ in range(40):
                 poll_response = client.get(
                     f"/api/v1/execution/jobs/{job_id}",
-                    headers=headers,
                 )
                 self.assertEqual(poll_response.status_code, 200)
                 final_payload = poll_response.json()

@@ -28,7 +28,7 @@ def ready() -> JSONResponse:
     checks = {
         "database": {
             "ok": check_database(),
-            "required": True,
+            "required": False,
         },
         "redis": {
             "ok": check_redis(settings.redis_url),

@@ -22,7 +22,7 @@ class Settings(BaseModel):
     database_url: str = "sqlite:///./bigo_lab.db"
     redis_url: str = "redis://localhost:6379/0"
     redis_required: bool = False
-    auto_create_tables: bool = True
+    auto_create_tables: bool = False
 
     secret_key: str = Field(default="change-this-in-production", min_length=16)
     jwt_algorithm: str = "HS256"
@@ -60,7 +60,7 @@ def get_settings() -> Settings:
         database_url=os.getenv("DATABASE_URL", "sqlite:///./bigo_lab.db"),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
         redis_required=_as_bool(os.getenv("REDIS_REQUIRED"), False),
-        auto_create_tables=_as_bool(os.getenv("AUTO_CREATE_TABLES"), True),
+        auto_create_tables=_as_bool(os.getenv("AUTO_CREATE_TABLES"), False),
         secret_key=os.getenv("SECRET_KEY", "change-this-in-production"),
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")),

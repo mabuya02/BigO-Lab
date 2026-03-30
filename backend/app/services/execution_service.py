@@ -106,7 +106,7 @@ class ExecutionService:
         return cls._to_schema_result(result, instrumentation_metadata=instrumentation_metadata)
 
     @classmethod
-    def submit_job(cls, payload: CodeExecutionRequest, user_id: str) -> CodeExecutionJob:
+    def submit_job(cls, payload: CodeExecutionRequest, owner_id: str | None = None) -> CodeExecutionJob:
         settings = get_settings()
         job_id = str(uuid4())
         queue_backend = settings.execution_queue_backend
@@ -118,30 +118,34 @@ class ExecutionService:
             submitted_at=utcnow(),
         )
         with cls._job_lock:
-            cls._jobs[job_id] = {"owner_id": user_id, "job": job}
+            cls._jobs[job_id] = {"owner_id": owner_id, "job": job}
 
         payload_dict = payload.model_dump()
-        if queue_backend in {"auto", "dramatiq"} and enqueue_execution_job(job_id, payload_dict, user_id):
+        worker_owner_id = owner_id or "anonymous"
+        if queue_backend in {"auto", "dramatiq"} and enqueue_execution_job(job_id, payload_dict, worker_owner_id):
             cls._update_job(job_id, queue_backend="dramatiq")
-            return cls.get_job(job_id, user_id)
+            return cls.get_job(job_id, owner_id)
 
         if queue_backend == "dramatiq":
             raise RuntimeError("Dramatiq queue requested but is not available")
 
         worker = Thread(
             target=cls.process_job,
-            args=(job_id, payload_dict, user_id),
+            args=(job_id, payload_dict, worker_owner_id),
             daemon=True,
             name=f"execution-job-{job_id}",
         )
         worker.start()
-        return cls.get_job(job_id, user_id)
+        return cls.get_job(job_id, owner_id)
 
     @classmethod
-    def get_job(cls, job_id: str, user_id: str) -> CodeExecutionJob:
+    def get_job(cls, job_id: str, owner_id: str | None = None) -> CodeExecutionJob:
         with cls._job_lock:
             record = cls._jobs.get(job_id)
-        if record is None or record["owner_id"] != user_id:
+        if record is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution job not found")
+        record_owner_id = record["owner_id"]
+        if record_owner_id is not None and record_owner_id != owner_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution job not found")
         return record["job"]  # type: ignore[return-value]
 

@@ -20,6 +20,11 @@ from app.core.settings import get_settings  # noqa: E402
 
 get_settings.cache_clear()
 
+from app.api.routes import auth as auth_routes  # noqa: E402
+from app.api.routes import execution as execution_routes  # noqa: E402
+from app.api.routes import experiments as experiments_routes  # noqa: E402
+from app.api.routes import projects as projects_routes  # noqa: E402
+from app.api.routes import snippets as snippets_routes  # noqa: E402
 from app.db.base.base import Base  # noqa: E402
 from app.db.session import engine  # noqa: E402
 from app.main import create_app  # noqa: E402
@@ -33,7 +38,14 @@ def reset_database() -> None:
 @contextmanager
 def get_client():
     reset_database()
-    with TestClient(create_app()) as client:
+    app = create_app()
+    settings = get_settings()
+    app.include_router(auth_routes.router, prefix=settings.api_prefix)
+    app.include_router(projects_routes.router, prefix=settings.api_prefix)
+    app.include_router(snippets_routes.router, prefix=settings.api_prefix)
+    app.include_router(experiments_routes.router, prefix=settings.api_prefix)
+    app.include_router(execution_routes.router, prefix=settings.api_prefix)
+    with TestClient(app) as client:
         yield client
     engine.dispose()
 
