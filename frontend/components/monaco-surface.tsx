@@ -39,17 +39,48 @@ function syncDecorations(
   const maxExecutionCount = Math.max(...metrics.map((metric) => metric.total_execution_count), 1);
   const nextDecorations = metrics
     .filter((metric) => metric.line_number <= model.getLineCount())
-    .map((metric) => ({
-      range: new monaco.Range(metric.line_number, 1, metric.line_number, 1),
-      options: {
-        isWholeLine: true,
-        className: heatClassName(metric.total_execution_count / maxExecutionCount),
-        glyphMarginClassName: "line-glyph-hot",
-        glyphMarginHoverMessage: {
-          value: `Executions: ${metric.total_execution_count}\nLoop iterations: ${metric.loop_iterations}`,
+    .map((metric) => {
+      // Heuristic to display time complexity equation per line
+      let complexityEq = "";
+      let complexityClass = "";
+      
+      if (metric.total_execution_count > 0) {
+        if (metric.nesting_depth === 0) {
+          complexityEq = "O(1)";
+          complexityClass = "complexity-label complexity-o-1";
+        } else if (metric.nesting_depth === 1) {
+          complexityEq = "O(N)";
+          complexityClass = "complexity-label complexity-o-n";
+        } else if (metric.nesting_depth === 2) {
+          complexityEq = "O(N²)";
+          complexityClass = "complexity-label complexity-o-n2";
+        } else if (metric.nesting_depth === 3) {
+          complexityEq = "O(N³)";
+          complexityClass = "complexity-label complexity-o-n3";
+        } else {
+          // Cap rendering at O(N^4) for generic display constraints
+          complexityEq = "O(N⁴)";
+          complexityClass = "complexity-label complexity-o-n4";
+        }
+      }
+      
+      const combinedClassName = [
+        heatClassName(metric.total_execution_count / maxExecutionCount),
+        complexityClass
+      ].filter(Boolean).join(" ");
+
+      return {
+        range: new monaco.Range(metric.line_number, 1, metric.line_number, 1),
+        options: {
+          isWholeLine: true,
+          className: combinedClassName,
+          glyphMarginClassName: "line-glyph-hot",
+          glyphMarginHoverMessage: {
+            value: `Executions: ${metric.total_execution_count}\nLoop iterations: ${metric.loop_iterations}\nEstimated Complexity: ${complexityEq || "N/A"}`,
+          },
         },
-      },
-    }));
+      };
+    });
 
   return editor.deltaDecorations(currentDecorationIds, nextDecorations);
 }
