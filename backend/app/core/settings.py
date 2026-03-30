@@ -39,6 +39,21 @@ class Settings(BaseModel):
     execution_output_limit_bytes: int = 32768
     execution_cpu_limit: float = 1.0
 
+    request_max_body_bytes: int = 262144
+    request_timing_headers_enabled: bool = True
+    rate_limit_enabled: bool = True
+    rate_limit_backend: str = "memory"
+    rate_limit_window_seconds: int = 60
+    rate_limit_compute_limit: int = 20
+    rate_limit_heavy_limit: int = 8
+    rate_limit_read_limit: int = 120
+    cache_enabled: bool = True
+    cache_backend: str = "memory"
+    cache_default_ttl_seconds: int = 120
+    cache_presets_ttl_seconds: int = 600
+    cache_analysis_ttl_seconds: int = 180
+    cache_share_ttl_seconds: int = 300
+
     cors_allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 
@@ -80,5 +95,19 @@ def get_settings() -> Settings:
         execution_memory_limit_mb=int(os.getenv("EXECUTION_MEMORY_LIMIT_MB", "128")),
         execution_output_limit_bytes=int(os.getenv("EXECUTION_OUTPUT_LIMIT_BYTES", "32768")),
         execution_cpu_limit=float(os.getenv("EXECUTION_CPU_LIMIT", "1.0")),
+        request_max_body_bytes=int(os.getenv("REQUEST_MAX_BODY_BYTES", "262144")),
+        request_timing_headers_enabled=_as_bool(os.getenv("REQUEST_TIMING_HEADERS_ENABLED"), True),
+        rate_limit_enabled=_as_bool(os.getenv("RATE_LIMIT_ENABLED"), True),
+        rate_limit_backend=os.getenv("RATE_LIMIT_BACKEND", "memory"),
+        rate_limit_window_seconds=int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
+        rate_limit_compute_limit=int(os.getenv("RATE_LIMIT_COMPUTE_LIMIT", "20")),
+        rate_limit_heavy_limit=int(os.getenv("RATE_LIMIT_HEAVY_LIMIT", "8")),
+        rate_limit_read_limit=int(os.getenv("RATE_LIMIT_READ_LIMIT", "120")),
+        cache_enabled=_as_bool(os.getenv("CACHE_ENABLED"), True),
+        cache_backend=os.getenv("CACHE_BACKEND", "memory"),
+        cache_default_ttl_seconds=int(os.getenv("CACHE_DEFAULT_TTL_SECONDS", "120")),
+        cache_presets_ttl_seconds=int(os.getenv("CACHE_PRESETS_TTL_SECONDS", "600")),
+        cache_analysis_ttl_seconds=int(os.getenv("CACHE_ANALYSIS_TTL_SECONDS", "180")),
+        cache_share_ttl_seconds=int(os.getenv("CACHE_SHARE_TTL_SECONDS", "300")),
         cors_allowed_origins=origins,
     )

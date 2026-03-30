@@ -13,6 +13,7 @@ os.environ["EXECUTION_QUEUE_BACKEND"] = "local"
 os.environ["EXECUTION_ALLOW_LOCAL_FALLBACK"] = "true"
 
 from app.core.settings import get_settings  # noqa: E402
+from app.core.runtime import reset_runtime_state  # noqa: E402
 
 get_settings.cache_clear()
 
@@ -25,5 +26,6 @@ def reset_database() -> None:
 
 @contextmanager
 def get_client():
+    reset_runtime_state()
     with TestClient(create_app()) as client:
         yield client

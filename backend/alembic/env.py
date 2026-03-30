@@ -7,6 +7,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.settings import get_settings
 from app.db.base.base import Base
+from app.db.base.models import import_all_models
 
 config = context.config
 settings = get_settings()
@@ -15,6 +16,7 @@ config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+import_all_models()
 target_metadata = Base.metadata
 
 

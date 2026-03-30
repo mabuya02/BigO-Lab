@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.core.runtime import cached_call
 from app.core.settings import get_settings
 from app.schemas.share import ShareCreateRequest, SharePayloadRead, ShareResolveRequest, ShareResolveResponse
 from app.utils.helpers import utcnow
@@ -43,23 +44,34 @@ class ShareService:
 
     @classmethod
     def resolve_share_payload(cls, payload: ShareResolveRequest) -> ShareResolveResponse:
-        body = cls._decode(payload.token)
-        created_at = cls._parse_datetime(body["created_at"])
-        expires_at = cls._parse_datetime(body["expires_at"]) if body.get("expires_at") else None
-        if expires_at is not None and utcnow() > expires_at:
-            raise HTTPException(status_code=status.HTTP_410_GONE, detail="Shared payload has expired")
-        return ShareResolveResponse(
-            token=payload.token,
-            share_path=f"/share/{payload.token}",
-            kind=str(body["kind"]),
-            label=body.get("label"),
-            data=dict(body.get("data", {})),
-            created_at=created_at,
-            expires_at=expires_at,
-            payload_size_bytes=len(cls._json_bytes(body)),
-            signature_version=str(body.get("signature_version", cls.SIGNATURE_VERSION)),
-            resolved_at=utcnow(),
+        settings = get_settings()
+
+        def factory() -> dict:
+            body = cls._decode(payload.token)
+            created_at = cls._parse_datetime(body["created_at"])
+            expires_at = cls._parse_datetime(body["expires_at"]) if body.get("expires_at") else None
+            if expires_at is not None and utcnow() > expires_at:
+                raise HTTPException(status_code=status.HTTP_410_GONE, detail="Shared payload has expired")
+            return ShareResolveResponse(
+                token=payload.token,
+                share_path=f"/share/{payload.token}",
+                kind=str(body["kind"]),
+                label=body.get("label"),
+                data=dict(body.get("data", {})),
+                created_at=created_at,
+                expires_at=expires_at,
+                payload_size_bytes=len(cls._json_bytes(body)),
+                signature_version=str(body.get("signature_version", cls.SIGNATURE_VERSION)),
+                resolved_at=utcnow(),
+            ).model_dump(mode="json")
+
+        cached_payload, _ = cached_call(
+            "shares:resolve",
+            {"token": payload.token},
+            ttl_seconds=settings.cache_share_ttl_seconds,
+            factory=factory,
         )
+        return ShareResolveResponse.model_validate(cached_payload)
 
     @classmethod
     def _encode(cls, body: dict[str, Any]) -> str:

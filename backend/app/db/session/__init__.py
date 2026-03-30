@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.settings import get_settings
 from app.db.base.base import Base
+from app.db.base.models import import_all_models
 
 settings = get_settings()
 
@@ -18,6 +19,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def init_db() -> None:
+    import_all_models()
     Base.metadata.create_all(bind=engine)
 
 

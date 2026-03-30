@@ -3,6 +3,8 @@ from __future__ import annotations
 from math import log
 from typing import Iterable
 
+from app.core.runtime import cached_call
+from app.core.settings import get_settings
 from app.schemas.explanation import ExplanationRequest, ExplanationResponse, ExplanationSection
 from app.schemas.metrics import AggregatedFunctionMetric, AggregatedLineMetric, MetricPoint
 
@@ -12,6 +14,21 @@ class ExplanationService:
 
     @classmethod
     def generate(cls, payload: ExplanationRequest) -> ExplanationResponse:
+        settings = get_settings()
+
+        def factory() -> dict:
+            return cls._generate_uncached(payload).model_dump()
+
+        cached_payload, _ = cached_call(
+            "explanations",
+            payload.model_dump(mode="json"),
+            ttl_seconds=settings.cache_analysis_ttl_seconds,
+            factory=factory,
+        )
+        return ExplanationResponse.model_validate(cached_payload)
+
+    @classmethod
+    def _generate_uncached(cls, payload: ExplanationRequest) -> ExplanationResponse:
         snapshot = payload.metrics_snapshot
         summary = snapshot.summary
 

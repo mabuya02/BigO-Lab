@@ -5,6 +5,8 @@ from math import isfinite
 from statistics import fmean
 from typing import Iterable, Sequence
 
+from app.core.runtime import cached_call
+from app.core.settings import get_settings
 from app.schemas.comparison import (
     ComparisonComplexityDelta,
     ComparisonComplexityInput,
@@ -51,6 +53,21 @@ class ComparisonService:
 
     @classmethod
     def compare(cls, request: ComparisonRequest) -> ComparisonReport:
+        settings = get_settings()
+
+        def factory() -> dict:
+            return cls._compare_uncached(request).model_dump()
+
+        cached_payload, _ = cached_call(
+            "comparisons",
+            request.model_dump(mode="json"),
+            ttl_seconds=settings.cache_analysis_ttl_seconds,
+            factory=factory,
+        )
+        return ComparisonReport.model_validate(cached_payload)
+
+    @classmethod
+    def _compare_uncached(cls, request: ComparisonRequest) -> ComparisonReport:
         left = cls._summarize_subject(request.left)
         right = cls._summarize_subject(request.right)
 
