@@ -1,43 +1,71 @@
-from logging.config import fileConfig
+"""
+Alembic environment configuration.
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+Loads .env, imports all SQLAlchemy models so that Base.metadata reflects
+the full schema, and wires in the database URL from app settings.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from logging.config import fileConfig
+from pathlib import Path
+
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# ---------------------------------------------------------------------------
+# 1. Ensure the backend root is on sys.path so "app.*" imports work.
+# ---------------------------------------------------------------------------
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# ---------------------------------------------------------------------------
+# 2. Load .env file so DB_* vars are available to Settings.
+# ---------------------------------------------------------------------------
+_env_file = Path(__file__).resolve().parents[1] / ".env"
+if _env_file.exists():
+    for line in _env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip()
+        if key:
+            os.environ.setdefault(key, value)
+
+# ---------------------------------------------------------------------------
+# 3. Import Base *and* every model module so metadata is fully populated.
+#    Adding or removing a model file? Just update app/models/__init__.py.
+# ---------------------------------------------------------------------------
+from app.db import Base  # noqa: E402
+import app.models  # noqa: E402, F401  — triggers all model imports
+
+# ---------------------------------------------------------------------------
+# 4. Alembic setup.
+# ---------------------------------------------------------------------------
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# Python logging from the .ini file
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+# Provide the real DB URL to Alembic (overrides sqlalchemy.url in .ini)
+from app.core.settings import get_settings  # noqa: E402
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
+# The MetaData that Alembic will compare against the live database.
+target_metadata = Base.metadata
+
+
+# ---------------------------------------------------------------------------
+# Offline & online migration runners
+# ---------------------------------------------------------------------------
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
+    """Run migrations in 'offline' mode (SQL script output only)."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -51,12 +79,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
+    """Run migrations in 'online' mode — connects to the live database."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -65,7 +88,8 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
         )
 
         with context.begin_transaction():

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: dev dev-backend dev-frontend install install-backend install-frontend lint lint-backend lint-frontend test test-backend test-frontend build build-frontend docker-build docker-up docker-down clean
+.PHONY: dev dev-backend dev-frontend install install-backend install-frontend lint lint-backend lint-frontend test test-backend test-frontend build build-frontend docker-build docker-up docker-down clean migrate migrate-up migrate-down migrate-history
 
 # ── Development ──
 
@@ -49,6 +49,20 @@ build: build-frontend
 
 build-frontend:
 	cd frontend && pnpm build
+
+# ── Migrations (Alembic) ──
+
+migrate:  ## Auto-generate a migration from model changes (usage: make migrate m="add users table")
+	cd backend && source .venv/bin/activate && alembic revision --autogenerate -m "$(m)"
+
+migrate-up:  ## Apply all pending migrations
+	cd backend && source .venv/bin/activate && alembic upgrade head
+
+migrate-down:  ## Rollback the last migration
+	cd backend && source .venv/bin/activate && alembic downgrade -1
+
+migrate-history:  ## Show migration history
+	cd backend && source .venv/bin/activate && alembic history --verbose
 
 # ── Docker ──
 
