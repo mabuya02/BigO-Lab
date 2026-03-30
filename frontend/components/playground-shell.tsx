@@ -16,8 +16,15 @@ import {
   Play,
   Share2,
   Sparkles,
+  Code2,
+  Terminal,
+  Settings,
+  FileText,
+  LayoutTemplate,
+  Info
 } from "lucide-react";
 import { startTransition, useEffect, useMemo, useState } from "react";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 
 import { playgroundApi, ApiError } from "@/lib/api";
 import type {
@@ -31,12 +38,8 @@ import { MonacoSurface } from "@/components/monaco-surface";
 import { usePlaygroundStore } from "@/store/playground-store";
 
 function buildSampleInput(preset: PresetRead) {
-  if (preset.input_kind === "numbers") {
-    return "12";
-  }
-  if (preset.input_kind === "string") {
-    return "abracadabra";
-  }
+  if (preset.input_kind === "numbers") return "12";
+  if (preset.input_kind === "string") return "abracadabra";
   return "[5, 3, 8, 1, 2]";
 }
 
@@ -48,10 +51,7 @@ function parseInputSizes(inputSizesText: string) {
 }
 
 function toComparisonComplexity(input: PlaygroundExperimentResponse["complexity_estimate"]): ComparisonComplexityInput | undefined {
-  if (!input) {
-    return undefined;
-  }
-
+  if (!input) return undefined;
   return {
     estimated_class: input.estimated_class,
     confidence: input.confidence,
@@ -65,10 +65,19 @@ function formatRuntime(runtimeMs: number) {
   return runtimeMs >= 1000 ? `${(runtimeMs / 1000).toFixed(2)} s` : `${runtimeMs.toFixed(0)} ms`;
 }
 
-function tabLabel(active: boolean) {
-  return clsx(
-    "rounded-full px-4 py-2 text-sm font-medium transition",
-    active ? "bg-[#1a130c] text-[#f5e6cd] shadow-[0_10px_30px_rgba(26,19,12,0.35)]" : "text-[#6a6c63] hover:bg-white/70",
+function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "flex min-w-fit items-center gap-2 rounded-md px-3 py-1.5 transition-colors text-xs hover:bg-white/5",
+        active ? "bg-white/10 text-white font-medium" : "text-gray-400 hover:text-gray-200"
+      )}
+    >
+      <Icon size={14} className={active ? "text-green-500" : ""} />
+      {label}
+    </button>
   );
 }
 
@@ -101,17 +110,10 @@ export function PlaygroundShell() {
   } = usePlaygroundStore();
 
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [leftTab, setLeftTab] = useState<"library" | "settings" | "insights">("library");
 
-  const statusQuery = useQuery({
-    queryKey: ["playground-status"],
-    queryFn: playgroundApi.getStatus,
-    refetchInterval: 20_000,
-  });
-
-  const presetsQuery = useQuery({
-    queryKey: ["presets"],
-    queryFn: playgroundApi.listPresets,
-  });
+  const statusQuery = useQuery({ queryKey: ["playground-status"], queryFn: playgroundApi.getStatus, refetchInterval: 20_000 });
+  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: playgroundApi.listPresets });
 
   const groupedPresets = useMemo(() => {
     const presets = presetsQuery.data?.presets ?? [];
@@ -124,60 +126,36 @@ export function PlaygroundShell() {
   useEffect(() => {
     if (!selectedPresetSlug && presetsQuery.data?.presets.length) {
       const preset = presetsQuery.data.presets.find((item) => item.slug === "bubble-sort") ?? presetsQuery.data.presets[0];
-      startTransition(() => {
-        applyPreset(preset, buildSampleInput(preset));
-      });
+      startTransition(() => { applyPreset(preset, buildSampleInput(preset)); });
     }
   }, [applyPreset, presetsQuery.data, selectedPresetSlug]);
 
   const runMutation = useMutation({
     mutationFn: playgroundApi.runCode,
     onSuccess: (payload) => {
-      startTransition(() => {
-        publishRun(payload);
-      });
+      startTransition(() => { publishRun(payload); setField("activeTab", "console"); });
       setFeedback(`Run finished in ${formatRuntime(payload.execution.runtime_ms)}.`);
     },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Run failed.");
-    },
+    onError: (error) => { setFeedback(error instanceof ApiError ? error.message : "Run failed."); },
   });
 
   const explanationMutation = useMutation({
     mutationFn: playgroundApi.generateExplanation,
-    onSuccess: (payload) => {
-      startTransition(() => {
-        publishExplanation(payload);
-      });
-    },
-    onError: () => {
-      startTransition(() => {
-        publishExplanation(null);
-      });
-    },
+    onSuccess: (payload) => { startTransition(() => { publishExplanation(payload); }); },
+    onError: () => { startTransition(() => { publishExplanation(null); }); },
   });
 
   const comparisonMutation = useMutation({
     mutationFn: playgroundApi.compareExperiments,
-    onSuccess: (payload) => {
-      startTransition(() => {
-        publishComparison(payload);
-      });
-    },
-    onError: () => {
-      startTransition(() => {
-        publishComparison(null);
-      });
-    },
+    onSuccess: (payload) => { startTransition(() => { publishComparison(payload); }); },
+    onError: () => { startTransition(() => { publishComparison(null); }); },
   });
 
   const experimentMutation = useMutation({
     mutationFn: playgroundApi.runExperiment,
     onSuccess: async (payload) => {
       const previousExperiment = usePlaygroundStore.getState().experimentResponse;
-      startTransition(() => {
-        publishExperiment(payload);
-      });
+      startTransition(() => { publishExperiment(payload); setField("activeTab", "console"); });
 
       const requests: Promise<unknown>[] = [];
       if (payload.complexity_estimate) {
@@ -186,12 +164,10 @@ export function PlaygroundShell() {
             metrics_snapshot: payload.metrics_snapshot,
             complexity_estimate: payload.complexity_estimate,
             max_sections: 5,
-          }),
+          })
         );
       } else {
-        startTransition(() => {
-          publishExplanation(null);
-        });
+        startTransition(() => { publishExplanation(null); });
       }
 
       if (previousExperiment) {
@@ -207,29 +183,23 @@ export function PlaygroundShell() {
               metrics: payload.metrics_snapshot,
               complexity_estimate: toComparisonComplexity(payload.complexity_estimate),
             },
-          }),
+          })
         );
       }
 
       await Promise.all(requests);
       setFeedback(`Experiment completed across ${payload.runs.length} runs.`);
     },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Experiment failed.");
-    },
+    onError: (error) => { setFeedback(error instanceof ApiError ? error.message : "Experiment failed."); },
   });
 
   const shareMutation = useMutation({
     mutationFn: playgroundApi.createShare,
     onSuccess: (payload) => {
-      startTransition(() => {
-        publishShare(payload);
-      });
+      startTransition(() => { publishShare(payload); setField("activeTab", "share"); });
       setFeedback("Share token generated.");
     },
-    onError: (error) => {
-      setFeedback(error instanceof ApiError ? error.message : "Share generation failed.");
-    },
+    onError: (error) => { setFeedback(error instanceof ApiError ? error.message : "Share generation failed."); },
   });
 
   const runExperiment = () => {
@@ -249,621 +219,570 @@ export function PlaygroundShell() {
   const selectedPreset = presetsQuery.data?.presets.find((preset) => preset.slug === selectedPresetSlug) ?? null;
   const lineMetrics = experimentResponse?.metrics_snapshot.line_metrics ?? [];
   const topFunctions = experimentResponse?.metrics_snapshot.function_metrics.slice(0, 4) ?? [];
+  const latestExecution = runResponse?.execution ?? experimentResponse?.runs.at(-1)?.execution ?? null;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(236,183,92,0.28),_transparent_28%),linear-gradient(180deg,_#f8f1df_0%,_#efe7d3_38%,_#f7f4ee_100%)] text-[#1d211d]">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(39,37,31,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(39,37,31,0.04)_1px,transparent_1px)] bg-[size:28px_28px] opacity-40 pointer-events-none" />
-      <div className="relative mx-auto flex min-h-screen max-w-[1660px] flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <header className="panel-shell mb-4 grid gap-4 px-5 py-5 lg:grid-cols-[1.3fr_0.8fr]">
+    <div className="flex h-screen w-full flex-col bg-[#0f0f0f] text-gray-300 font-sans selection:bg-green-500/30">
+      <header className="flex h-[50px] shrink-0 items-center justify-between border-b border-white/10 bg-[#1a1a1a] px-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-green-400 to-emerald-600 shadow-md shadow-green-500/20">
+            <Binary size={16} className="text-black" />
+          </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8d5e31]">Big O Playground</p>
-            <h1 className="mt-2 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[#161815] sm:text-4xl">
-              Interactive runtime lab for scaling behavior, hotspot analysis, and algorithm tradeoffs.
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#4f5047]">
-              Write Python, run controlled experiments, inspect hot lines, and compare growth curves without leaving the
-              same workspace.
-            </p>
+            <h1 className="text-sm font-semibold tracking-wide text-white">Big O Playground</h1>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400">Interactive Runtime Lab</p>
+            </div>
           </div>
-          <div className="grid gap-3 rounded-[24px] border border-white/55 bg-white/72 p-4 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-            <div className="flex items-center justify-between text-sm text-[#4f5047]">
-              <span className="inline-flex items-center gap-2 font-medium text-[#1d211d]">
-                <Activity size={16} className="text-[#b26e2f]" />
-                {statusQuery.data?.mode ?? "loading"}
-              </span>
-              <span>{statusQuery.data?.backend_status.execution_backend ?? "..."}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-xs text-[#4f5047]">
-              <div>
-                <p className="uppercase tracking-[0.18em] text-[#8d5e31]">Sandbox</p>
-                <p className="mt-1 font-medium text-[#1d211d]">
-                  {statusQuery.data?.backend_status.docker_image_available ? "Docker ready" : "Local fallback"}
-                </p>
-              </div>
-              <div>
-                <p className="uppercase tracking-[0.18em] text-[#8d5e31]">Queue</p>
-                <p className="mt-1 font-medium text-[#1d211d]">{statusQuery.data?.backend_status.queue_backend ?? "..."}</p>
-              </div>
-              <div>
-                <p className="uppercase tracking-[0.18em] text-[#8d5e31]">Memory cap</p>
-                <p className="mt-1 font-medium text-[#1d211d]">{statusQuery.data?.backend_status.memory_limit_mb ?? 0} MB</p>
-              </div>
-            </div>
-            {statusQuery.data?.description ? <p className="text-xs text-[#6a6c63]">{statusQuery.data.description}</p> : null}
-            {feedback ? <p className="text-xs text-[#6a6c63]">{feedback}</p> : null}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md bg-[#262626] hover:bg-[#333333] px-4 py-1.5 text-xs font-medium text-gray-300 transition-colors"
+            onClick={() =>
+              runMutation.mutate({
+                code,
+                input: stdin,
+                backend,
+                instrument,
+                timeout_seconds: timeoutSeconds,
+                memory_limit_mb: memoryLimitMb,
+              })
+            }
+            disabled={runMutation.isPending}
+          >
+            {runMutation.isPending ? <LoaderCircle className="animate-spin" size={14} /> : <Play size={14} className="text-gray-400 group-hover:text-white" />}
+            Run
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md bg-green-500 hover:bg-green-400 px-4 py-1.5 text-xs font-medium text-black transition-all"
+            onClick={runExperiment}
+            disabled={experimentMutation.isPending}
+          >
+            {experimentMutation.isPending ? <LoaderCircle className="animate-spin" size={14} /> : <FlaskConical size={14} className="text-black/80" />}
+            Submit
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-gray-400">
+          <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs border border-white/10">
+            <Activity size={12} className={statusQuery.data?.mode === "maintenance" ? "text-yellow-500" : "text-green-500"} />
+            <span className="capitalize">{statusQuery.data?.mode ?? "Connecting..."}</span>
           </div>
-        </header>
+          <button
+            onClick={() =>
+              shareMutation.mutate({
+                kind: "playground-session",
+                label: selectedPreset?.name ?? "Custom session",
+                expires_in_seconds: 60 * 60 * 24,
+                data: {
+                  workspace: { code, stdin, inputSizesText, inputKind, inputProfile, repetitions, backend, instrument, timeoutSeconds, memoryLimitMb },
+                  latestRun: runResponse,
+                  latestExperiment: experimentResponse,
+                  explanation,
+                  comparison,
+                },
+              })
+            }
+            disabled={shareMutation.isPending}
+            className="flex items-center gap-1.5 rounded-md bg-[#262626] hover:bg-[#333333] px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors"
+          >
+            {shareMutation.isPending ? <LoaderCircle className="animate-spin" size={14} /> : <Share2 size={14} className="text-gray-400" />}
+            Share
+          </button>
+        </div>
+      </header>
 
-        <div className="grid flex-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
-          <aside className="panel-shell flex min-h-[720px] flex-col overflow-hidden p-0">
-            <div className="border-b border-black/8 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">Preset Library</p>
-              <p className="mt-2 text-sm text-[#4f5047]">Load a reference algorithm, then mutate it and rerun the lab.</p>
+      <main className="flex-1 overflow-hidden p-3 bg-[#0a0a0a]">
+        <PanelGroup id="root" orientation="horizontal">
+          <Panel defaultSize={35} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex h-11 shrink-0 items-center gap-1 border-b border-white/10 bg-[#1e1e1e] px-2">
+              <TabButton active={leftTab === "library"} onClick={() => setLeftTab("library")} icon={FileText} label="DSA" />
+              <TabButton active={leftTab === "settings"} onClick={() => setLeftTab("settings")} icon={Settings} label="Settings" />
+              <TabButton active={leftTab === "insights"} onClick={() => setLeftTab("insights")} icon={BrainCircuit} label="Insights" />
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-3">
-              {presetsQuery.isLoading ? (
-                <div className="flex items-center gap-2 px-2 py-6 text-sm text-[#6a6c63]">
-                  <LoaderCircle className="animate-spin" size={16} />
-                  Loading presets...
-                </div>
-              ) : null}
-              {Object.entries(groupedPresets).map(([category, presets]) => (
-                <section key={category} className="mb-5">
-                  <h2 className="px-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">
-                    {category.replaceAll("-", " ")}
-                  </h2>
-                  <div className="mt-2 space-y-1">
-                    {presets.map((preset) => (
-                      <button
-                        key={preset.slug}
-                        type="button"
-                        className={clsx(
-                          "w-full rounded-[18px] px-3 py-3 text-left transition",
-                          selectedPresetSlug === preset.slug
-                            ? "bg-[#1a130c] text-[#f7ead5] shadow-[0_15px_35px_rgba(26,19,12,0.28)]"
-                            : "hover:bg-white/65",
-                        )}
-                        onClick={() =>
-                          startTransition(() => {
-                            applyPreset(preset, buildSampleInput(preset));
-                          })
-                        }
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium">{preset.name}</p>
-                            <p
-                              className={clsx(
-                                "mt-1 text-xs leading-5",
-                                selectedPresetSlug === preset.slug ? "text-[#dcc39c]" : "text-[#5b5d54]",
-                              )}
-                            >
-                              {preset.summary}
-                            </p>
-                          </div>
-                          <ArrowUpRight size={15} className={selectedPresetSlug === preset.slug ? "text-[#e6bc78]" : "text-[#8d5e31]"} />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </aside>
-
-          <main className="flex min-h-[720px] flex-col gap-4">
-            <section className="panel-shell p-4 sm:p-5">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">Workspace</p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-[#161815]">
-                    {selectedPreset?.name ?? "Custom analysis surface"}
-                  </h2>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full bg-[#17120d] px-4 py-2 text-sm font-medium text-[#f7ead5] transition hover:bg-[#2a1e12]"
-                    onClick={() =>
-                      runMutation.mutate({
-                        code,
-                        input: stdin,
-                        backend,
-                        instrument,
-                        timeout_seconds: timeoutSeconds,
-                        memory_limit_mb: memoryLimitMb,
-                      })
-                    }
-                    disabled={runMutation.isPending}
-                  >
-                    {runMutation.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <Play size={16} />}
-                    Run once
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-[#18120c]/12 bg-white/76 px-4 py-2 text-sm font-medium text-[#18120c] transition hover:border-[#18120c]/20 hover:bg-white"
-                    onClick={runExperiment}
-                    disabled={experimentMutation.isPending}
-                  >
-                    {experimentMutation.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <FlaskConical size={16} />}
-                    Run experiment
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-[#18120c]/12 bg-white/76 px-4 py-2 text-sm font-medium text-[#18120c] transition hover:border-[#18120c]/20 hover:bg-white"
-                    onClick={() =>
-                      shareMutation.mutate({
-                        kind: "playground-session",
-                        label: selectedPreset?.name ?? "Custom session",
-                        expires_in_seconds: 60 * 60 * 24,
-                        data: {
-                          workspace: {
-                            code,
-                            stdin,
-                            inputSizesText,
-                            inputKind,
-                            inputProfile,
-                            repetitions,
-                            backend,
-                            instrument,
-                            timeoutSeconds,
-                            memoryLimitMb,
-                          },
-                          latestRun: runResponse,
-                          latestExperiment: experimentResponse,
-                          explanation,
-                          comparison,
-                        },
-                      })
-                    }
-                    disabled={shareMutation.isPending}
-                  >
-                    {shareMutation.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <Share2 size={16} />}
-                    Share
-                  </button>
-                </div>
-              </div>
-
-              <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} />
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="rounded-[24px] border border-black/8 bg-white/70 p-4 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8d5e31]">Input console</h3>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-[#8d5e31] transition hover:text-[#5e3c20]"
-                      onClick={() => {
-                        if (selectedPreset) {
-                          setField("stdin", buildSampleInput(selectedPreset));
-                        }
-                      }}
-                    >
-                      Use sample input
-                    </button>
-                  </div>
-                  <textarea
-                    value={stdin}
-                    onChange={(event) => setField("stdin", event.target.value)}
-                    className="mt-3 h-32 w-full rounded-[18px] border border-black/8 bg-[#f5f1e8] px-4 py-3 text-sm text-[#1d211d] outline-none transition focus:border-[#be7c39] focus:bg-white"
-                    spellCheck={false}
-                  />
-                </div>
-                <div className="rounded-[24px] border border-black/8 bg-[#16110d] p-4 text-[#f1e7d1] shadow-[0_24px_60px_rgba(19,14,10,0.32)]">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#e6bc78]">Live output</h3>
-                  <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap text-sm leading-6 text-[#e8ddc7]">
-                    {runResponse?.execution.stdout || experimentResponse?.runs.at(-1)?.execution.stdout || "Run the code to inspect stdout."}
-                  </pre>
-                  {(runResponse?.execution.stderr || experimentResponse?.runs.at(-1)?.execution.stderr) && (
-                    <div className="mt-3 rounded-[18px] bg-[#2e130f] px-3 py-3 text-xs text-[#ffb7a4]">
-                      {runResponse?.execution.stderr || experimentResponse?.runs.at(-1)?.execution.stderr}
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              {leftTab === "library" && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {presetsQuery.isLoading && (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <LoaderCircle className="animate-spin" size={16} /> Loading presets...
                     </div>
                   )}
-                </div>
-              </div>
-            </section>
-
-            <section className="panel-shell p-4 sm:p-5">
-              <div className="mb-4 flex flex-wrap gap-2">
-                {[
-                  ["console", "Console"],
-                  ["runtime", "Runtime"],
-                  ["operations", "Operations"],
-                  ["explanation", "Explanation"],
-                  ["comparison", "Comparison"],
-                  ["share", "Share"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={tabLabel(activeTab === value)}
-                    onClick={() => setField("activeTab", value as typeof activeTab)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {activeTab === "console" ? (
-                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                  <ConsolePanel runResponse={runResponse} experimentResponse={experimentResponse} />
-                  <ExecutionSnapshot runResponse={runResponse} experimentResponse={experimentResponse} />
-                </div>
-              ) : null}
-
-              {activeTab === "runtime" && experimentResponse ? (
-                <MetricChart
-                  title="Runtime curve"
-                  subtitle="Measured wall-clock runtime across configured input sizes."
-                  data={experimentResponse.metrics_snapshot.summary.runtime_series.points}
-                  color="#b56d2d"
-                />
-              ) : null}
-
-              {activeTab === "operations" && experimentResponse ? (
-                <MetricChart
-                  title="Operation curve"
-                  subtitle="Aggregated line execution counts as a proxy for work performed."
-                  data={experimentResponse.metrics_snapshot.summary.operations_series.points}
-                  color="#1f6c6d"
-                />
-              ) : null}
-
-              {activeTab === "explanation" ? <ExplanationPanel explanation={explanation} /> : null}
-              {activeTab === "comparison" ? <ComparisonPanel comparison={comparison} /> : null}
-              {activeTab === "share" ? <SharePanel sharePayload={sharePayload} /> : null}
-            </section>
-          </main>
-
-          <aside className="panel-shell flex min-h-[720px] flex-col gap-4 p-4">
-            <section>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">Experiment controls</p>
-              <div className="mt-3 grid gap-3">
-                <Field label="Input sizes">
-                  <input
-                    value={inputSizesText}
-                    onChange={(event) => setField("inputSizesText", event.target.value)}
-                    className="field-shell"
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Input kind">
-                    <select value={inputKind} onChange={(event) => setField("inputKind", event.target.value as typeof inputKind)} className="field-shell">
-                      <option value="array">Array</option>
-                      <option value="numbers">Numbers</option>
-                      <option value="string">String</option>
-                    </select>
-                  </Field>
-                  <Field label="Profile">
-                    <select
-                      value={inputProfile}
-                      onChange={(event) => setField("inputProfile", event.target.value as typeof inputProfile)}
-                      className="field-shell"
-                    >
-                      <option value="random">Random</option>
-                      <option value="sorted">Sorted</option>
-                      <option value="reversed">Reversed</option>
-                      <option value="duplicate-heavy">Duplicate-heavy</option>
-                      <option value="nearly-sorted">Nearly-sorted</option>
-                    </select>
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Repetitions">
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={repetitions}
-                      onChange={(event) => setField("repetitions", Number(event.target.value))}
-                      className="field-shell"
-                    />
-                  </Field>
-                  <Field label="Backend">
-                    <select value={backend} onChange={(event) => setField("backend", event.target.value as typeof backend)} className="field-shell">
-                      <option value="auto">Auto</option>
-                      <option value="local">Local</option>
-                      <option value="docker">Docker</option>
-                    </select>
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Timeout (s)">
-                    <input
-                      type="number"
-                      min={1}
-                      max={30}
-                      value={timeoutSeconds}
-                      onChange={(event) => setField("timeoutSeconds", Number(event.target.value))}
-                      className="field-shell"
-                    />
-                  </Field>
-                  <Field label="Memory (MB)">
-                    <input
-                      type="number"
-                      min={64}
-                      max={1024}
-                      step={32}
-                      value={memoryLimitMb}
-                      onChange={(event) => setField("memoryLimitMb", Number(event.target.value))}
-                      className="field-shell"
-                    />
-                  </Field>
-                </div>
-                <label className="inline-flex items-center gap-3 rounded-[18px] border border-black/8 bg-white/72 px-3 py-3 text-sm text-[#2a2b25]">
-                  <input
-                    type="checkbox"
-                    checked={instrument}
-                    onChange={(event) => setField("instrument", event.target.checked)}
-                    className="h-4 w-4 accent-[#b56d2d]"
-                  />
-                  Enable instrumentation and heatmaps
-                </label>
-              </div>
-            </section>
-
-            <section className="rounded-[24px] border border-black/8 bg-white/72 p-4 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#8d5e31]">
-                <Gauge size={16} />
-                Complexity estimate
-              </div>
-              {experimentResponse?.complexity_estimate ? (
-                <div className="mt-3">
-                  <p className="text-3xl font-semibold tracking-[-0.05em] text-[#17120d]">
-                    {experimentResponse.complexity_estimate.estimated_class}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[#4f5047]">
-                    {experimentResponse.complexity_estimate.explanation}
-                  </p>
-                  <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#8d5e31]">
-                    Confidence {Math.round(experimentResponse.complexity_estimate.confidence * 100)}%
-                  </p>
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-[#5b5d54]">Run an experiment to estimate the scaling class.</p>
-              )}
-            </section>
-
-            <section className="rounded-[24px] border border-black/8 bg-[#17120d] p-4 text-[#f5ead6] shadow-[0_24px_60px_rgba(19,14,10,0.32)]">
-              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#e6bc78]">
-                <BrainCircuit size={16} />
-                Hotspots
-              </div>
-              <div className="mt-3 space-y-3">
-                {lineMetrics.slice(0, 4).map((metric) => (
-                  <div key={metric.line_number} className="rounded-[18px] bg-white/6 px-3 py-3">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span>Line {metric.line_number}</span>
-                      <span className="text-[#e6bc78]">{metric.total_execution_count.toLocaleString()} hits</span>
+                  {Object.entries(groupedPresets).map(([category, presets]) => (
+                    <div key={category} className="space-y-3">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
+                        {category.replaceAll("-", " ")}
+                      </h3>
+                      <div className="space-y-1">
+                        {presets.map((preset) => (
+                          <button
+                            key={preset.slug}
+                            type="button"
+                            className={clsx(
+                              "w-full rounded-lg px-3 py-2.5 text-left transition-all",
+                              selectedPresetSlug === preset.slug
+                                ? "bg-white/10 border border-white/10"
+                                : "hover:bg-white/5 border border-transparent"
+                            )}
+                            onClick={() => startTransition(() => applyPreset(preset, buildSampleInput(preset)))}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <LayoutTemplate size={14} className={selectedPresetSlug === preset.slug ? "text-green-500" : "text-gray-500"} />
+                                <span className={clsx("text-sm font-medium", selectedPresetSlug === preset.slug ? "text-white" : "text-gray-300")}>
+                                  {preset.name}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="mt-1.5 text-xs text-gray-400 leading-relaxed ml-6 line-clamp-3">
+                              {preset.summary}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-2 h-2 rounded-full bg-white/8">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#ffca7a] via-[#f08a37] to-[#dc5d2a]"
-                        style={{ width: `${Math.max(metric.percentage_of_total * 100, 6)}%` }}
+                  ))}
+                </div>
+              )}
+
+              {leftTab === "settings" && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className="rounded-lg border border-white/10 bg-[#262626] p-4 space-y-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                      <FlaskConical size={14} className="text-gray-400"/> Test Environment
+                    </h3>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Input Sizes (comma separated)</label>
+                      <input
+                        value={inputSizesText}
+                        onChange={(event) => setField("inputSizesText", event.target.value)}
+                        className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
                       />
                     </div>
-                  </div>
-                ))}
-                {!lineMetrics.length ? <p className="text-sm text-[#d5c2a4]">Instrumentation output will rank hot lines here.</p> : null}
-              </div>
-            </section>
-
-            <section className="rounded-[24px] border border-black/8 bg-white/72 p-4 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#8d5e31]">
-                <Database size={16} />
-                Function focus
-              </div>
-              <div className="mt-3 space-y-3">
-                {topFunctions.map((metric) => (
-                  <div key={metric.function_name} className="rounded-[18px] border border-black/6 bg-[#f7f4ee] px-3 py-3">
-                    <div className="flex items-center justify-between gap-3 text-sm font-medium text-[#17120d]">
-                      <span>{metric.function_name}</span>
-                      <span>{metric.total_call_count} calls</span>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Input Kind</label>
+                        <select
+                          value={inputKind}
+                          onChange={(event) => setField("inputKind", event.target.value as typeof inputKind)}
+                          className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
+                        >
+                          <option value="array">Array</option>
+                          <option value="numbers">Numbers</option>
+                          <option value="string">String</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Profile</label>
+                        <select
+                          value={inputProfile}
+                          onChange={(event) => setField("inputProfile", event.target.value as typeof inputProfile)}
+                          className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
+                        >
+                          <option value="random">Random</option>
+                          <option value="sorted">Sorted</option>
+                          <option value="reversed">Reversed</option>
+                          <option value="duplicate-heavy">Duplicate-heavy</option>
+                          <option value="nearly-sorted">Nearly-sorted</option>
+                        </select>
+                      </div>
                     </div>
-                    <p className="mt-2 text-xs text-[#5b5d54]">
-                      Max depth {metric.max_depth} | self time {metric.self_time_ms.toFixed(2)} ms
-                    </p>
                   </div>
-                ))}
-                {!topFunctions.length ? <p className="text-sm text-[#5b5d54]">Function hotspots will appear after an instrumented experiment.</p> : null}
-              </div>
-            </section>
-          </aside>
-        </div>
-      </div>
+
+                  <div className="rounded-lg border border-white/10 bg-[#262626] p-4 space-y-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                       <Settings size={14} className="text-gray-400"/> Execution Limits
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Repetitions</label>
+                        <input
+                          type="number" min={1} max={10}
+                          value={repetitions}
+                          onChange={(event) => setField("repetitions", Number(event.target.value))}
+                          className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Backend</label>
+                        <select
+                          value={backend}
+                          onChange={(event) => setField("backend", event.target.value as typeof backend)}
+                          className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="local">Local</option>
+                          <option value="docker">Docker</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Timeout (s)</label>
+                        <input
+                          type="number" min={1} max={30}
+                          value={timeoutSeconds}
+                          onChange={(event) => setField("timeoutSeconds", Number(event.target.value))}
+                          className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Memory (MB)</label>
+                        <input
+                          type="number" min={64} max={1024} step={32}
+                          value={memoryLimitMb}
+                          onChange={(event) => setField("memoryLimitMb", Number(event.target.value))}
+                          className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#262626] px-4 py-3 text-sm text-gray-300 cursor-pointer hover:bg-white/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={instrument}
+                      onChange={(event) => setField("instrument", event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-600 bg-[#121212] text-green-500 focus:ring-green-500/50"
+                    />
+                    Enable instrumentation (heatmaps & insights)
+                  </label>
+                </div>
+              )}
+
+              {leftTab === "insights" && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className="rounded-lg border border-white/10 bg-[#262626] p-5">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#00b8a3] mb-4">
+                      <Gauge size={16} /> Complexity Estimate
+                    </div>
+                    {experimentResponse?.complexity_estimate ? (
+                      <div>
+                        <p className="text-3xl font-bold tracking-tight text-white font-mono">
+                          {experimentResponse.complexity_estimate.estimated_class}
+                        </p>
+                        <p className="mt-3 text-sm leading-relaxed text-gray-400">
+                          {experimentResponse.complexity_estimate.explanation}
+                        </p>
+                        <div className="mt-4 inline-flex items-center rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-gray-300 border border-white/10">
+                          Confidence: {Math.round(experimentResponse.complexity_estimate.confidence * 100)}%
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-6 text-center text-gray-500">
+                        <Info size={24} className="mb-2 opacity-50" />
+                        <p className="text-sm">Submit an experiment to estimate scaling class.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-white/10 bg-[#262626] p-5">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#ffc01e] mb-4">
+                      <BrainCircuit size={16} /> Code Hotspots
+                    </div>
+                    <div className="space-y-3">
+                      {lineMetrics.slice(0, 4).map((metric) => (
+                        <div key={metric.line_number} className="rounded-lg border border-white/5 bg-[#121212] p-3">
+                          <div className="flex items-center justify-between gap-3 text-sm mb-2">
+                            <span className="text-gray-300">Line {metric.line_number}</span>
+                            <span className="text-[#ffc01e] font-mono text-xs">{metric.total_execution_count.toLocaleString()} hits</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-black/50 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#ffc01e] to-[#ff2d55]"
+                              style={{ width: `${Math.max(metric.percentage_of_total * 100, 6)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {!lineMetrics.length && (
+                        <div className="py-4 text-center text-sm text-gray-500">
+                          Enable instrumentation and run to see hotspots.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-white/10 bg-[#262626] p-5">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#007aff] mb-4">
+                      <Database size={16} /> Function Focus
+                    </div>
+                    <div className="space-y-3">
+                      {topFunctions.map((metric) => (
+                        <div key={metric.function_name} className="rounded-lg border border-white/5 bg-[#121212] p-3">
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="text-gray-200 font-medium font-mono text-xs">{metric.function_name}</span>
+                            <span className="text-[#007aff] font-mono text-xs">{metric.total_call_count} calls</span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Max depth {metric.max_depth} <span className="mx-1">•</span> Self time {metric.self_time_ms.toFixed(2)}ms
+                          </p>
+                        </div>
+                      ))}
+                      {!topFunctions.length && (
+                        <div className="py-4 text-center text-sm text-gray-500">
+                          No function metrics available yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-1.5 flex items-center justify-center cursor-col-resize group z-10 transition-colors hover:bg-white/10">
+            <div className="w-[2px] h-8 rounded-full bg-white/20 transition-colors" />
+          </PanelResizeHandle>
+
+          <Panel defaultSize={65} minSize={30}>
+            <PanelGroup id="editor-console" orientation="vertical">
+              <Panel defaultSize={60} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl relative">
+                <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/10 bg-[#1e1e1e] px-4 text-xs">
+                  <div className="flex items-center gap-2 text-gray-300 font-medium">
+                    <Code2 size={16} className="text-green-500" />
+                    <span>Code</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-gray-400 bg-white/5 px-2 py-0.5 rounded cursor-default border border-white/5 hover:bg-white/10 transition-colors">
+                    Python 3.11
+                  </div>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-hidden bg-[#1e1e1e]">
+                  <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} />
+                </div>
+              </Panel>
+
+              <PanelResizeHandle className="h-1.5 flex items-center justify-center cursor-row-resize group z-10 hover:bg-white/10 transition-colors">
+                <div className="h-[2px] w-8 rounded-full bg-white/20 transition-colors" />
+              </PanelResizeHandle>
+
+              <Panel defaultSize={40} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl">
+                <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-white/10 bg-[#1e1e1e] px-2 hide-scrollbar text-xs">
+                  <TabButton active={activeTab === "console"} onClick={() => setField("activeTab", "console")} icon={Terminal} label="Testcase" />
+                  <TabButton active={activeTab === "runtime"} onClick={() => setField("activeTab", "runtime")} icon={Activity} label="Runtime" />
+                  <TabButton active={activeTab === "operations"} onClick={() => setField("activeTab", "operations")} icon={Gauge} label="Operations" />
+                  <TabButton active={activeTab === "explanation"} onClick={() => setField("activeTab", "explanation")} icon={Sparkles} label="Explanation" />
+                  <TabButton active={activeTab === "comparison"} onClick={() => setField("activeTab", "comparison")} icon={BarChart3} label="Compare" />
+                  <TabButton active={activeTab === "share"} onClick={() => setField("activeTab", "share")} icon={Share2} label="Share" />
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#1e1e1e]">
+                  {feedback && activeTab !== "console" && activeTab !== "share" && (
+                    <div className="mb-4 rounded-md bg-white/5 px-3 py-2 text-xs text-gray-400 border border-white/10">
+                      <span className="text-green-400 mr-2">➜</span> {feedback}
+                    </div>
+                  )}
+
+                  {activeTab === "console" && (
+                    <div className="flex flex-col h-full gap-4 lg:flex-row">
+                      <div className="flex-1 flex flex-col space-y-3 min-w-[50%]">
+                        <div className="flex items-center gap-3">
+                          <label className="text-xs font-semibold text-gray-300">Input</label>
+                          <button
+                            type="button"
+                            className="bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded text-[11px] text-gray-400 transition-colors"
+                            onClick={() => { if (selectedPreset) setField("stdin", buildSampleInput(selectedPreset)); }}
+                          >
+                            Sample
+                          </button>
+                        </div>
+                        <textarea
+                          value={stdin}
+                          onChange={(event) => setField("stdin", event.target.value)}
+                          className="flex-1 min-h-[120px] w-full resize-none rounded-lg border border-white/10 bg-[#121212] px-4 py-3 text-sm text-gray-300 outline-none focus:border-white/20 transition-colors font-mono"
+                          spellCheck={false}
+                          placeholder="Standard input..."
+                        />
+                      </div>
+                      <div className="flex-1 flex flex-col space-y-3 min-w-[50%]">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-gray-300">Output</label>
+                          {latestExecution && (
+                            <span className={clsx("text-xs px-2 py-0.5 rounded bg-white/5 font-medium border border-white/10", latestExecution.status === "completed" ? "text-green-500" : "text-red-500")}>
+                              {latestExecution.status === "completed" ? "Accepted" : "Runtime Error"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-h-[120px] rounded-lg border border-white/10 bg-[#121212] p-4 overflow-y-auto w-full">
+                          {latestExecution ? (
+                            <div className="space-y-4">
+                              <div>
+                                <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{latestExecution.stdout || <span className="opacity-50">No stdout</span>}</pre>
+                              </div>
+                              {latestExecution.stderr && (
+                                <div>
+                                  <div className="rounded bg-red-500/10 px-3 py-2 text-sm text-red-500 font-mono whitespace-pre-wrap">
+                                    {latestExecution.stderr}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="pt-3 border-t border-white/10 flex gap-4 text-xs text-gray-500">
+                                <div className="flex items-center gap-1.5"><Activity size={12}/> {formatRuntime(latestExecution.runtime_ms)}</div>
+                                <div className="flex items-center gap-1.5"><Database size={12}/> {latestExecution.backend}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-sm text-gray-500 italic px-4 text-center">
+                              Run the code or submit an experiment to see the output.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "runtime" && experimentResponse && (
+                    <div className="h-full w-full max-h-[400px]">
+                      <MetricChart
+                        title="Runtime Curve"
+                        subtitle="Measured wall-clock runtime across input sizes (lower is better)."
+                        data={experimentResponse.metrics_snapshot.summary.runtime_series.points}
+                        color="#00b8a3"
+                      />
+                    </div>
+                  )}
+
+                  {activeTab === "operations" && experimentResponse && (
+                    <div className="h-full w-full max-h-[400px]">
+                      <MetricChart
+                        title="Operations Curve"
+                        subtitle="Aggregated line execution counts as a proxy for algorithm steps."
+                        data={experimentResponse.metrics_snapshot.summary.operations_series.points}
+                        color="#007aff"
+                      />
+                    </div>
+                  )}
+
+                  {activeTab === "explanation" && (
+                    <div className="max-w-4xl animate-in fade-in">
+                      {explanation ? (
+                        <div className="space-y-6">
+                          <div className="rounded-xl border border-white/10 bg-[#262626] p-6">
+                            <h3 className="text-xl font-bold tracking-tight text-white mb-2">{explanation.headline}</h3>
+                            <p className="text-gray-400 leading-relaxed text-sm">{explanation.summary}</p>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {explanation.sections.map((section) => (
+                              <div key={`${section.kind}-${section.title}`} className="rounded-xl border border-white/10 bg-[#262626] p-5">
+                                <p className="text-[10px] font-semibold uppercase tracking-widest text-green-500 mb-2">{section.kind}</p>
+                                <h4 className="text-base font-medium text-white mb-2">{section.title}</h4>
+                                <p className="text-sm leading-relaxed text-gray-400 mb-4">{section.body}</p>
+                                {section.evidence.length > 0 && (
+                                  <ul className="space-y-1.5 text-xs text-gray-500 bg-[#121212] p-3 rounded-lg border border-white/5">
+                                    {section.evidence.map((item) => (
+                                      <li key={item} className="flex gap-2"><span className="text-green-500">•</span> <span>{item}</span></li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500">
+                          <Sparkles size={32} className="mb-4 text-gray-600" />
+                          <h3 className="text-lg font-medium text-gray-300 mb-2">No Explanation Generated</h3>
+                          <p className="max-w-md text-sm">Run an experiment to let AI generate narrative insights for your algorithm.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === "comparison" && (
+                    <div className="max-w-4xl animate-in fade-in">
+                      {comparison ? (
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="rounded-xl border border-white/10 bg-[#262626] p-6">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400 mb-2">Verdict</p>
+                            <h3 className="text-xl font-bold text-white mb-2">{comparison.summary.verdict}</h3>
+                            <p className="text-sm text-gray-400 mb-4 bg-[#121212] p-2 rounded-lg border border-white/5 inline-flex items-center gap-2">
+                              Winner: <span className="text-blue-400 font-medium">{comparison.summary.overall_winner}</span> |
+                              Conf: <span>{Math.round(comparison.summary.confidence * 100)}%</span>
+                            </p>
+                            {comparison.summary.tradeoffs.length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-xs text-gray-500">Tradeoffs:</p>
+                                <ul className="space-y-1 text-sm text-gray-400 list-inside list-disc pl-1">
+                                  {comparison.summary.tradeoffs.map((t) => <li key={t}>{t}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="rounded-lg bg-[#262626] p-4 border border-white/5">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-semibold text-gray-300 tracking-wider">RUNTIME</span>
+                                <span className="text-xs text-green-400 px-2 py-0.5 rounded bg-white/5 border border-white/10">{comparison.runtime.winner}</span>
+                              </div>
+                              <p className="text-sm text-gray-400">{comparison.runtime.interpretation}</p>
+                            </div>
+                            <div className="rounded-lg bg-[#262626] p-4 border border-white/5">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-semibold text-gray-300 tracking-wider">OPERATIONS</span>
+                                <span className="text-xs text-[#007aff] px-2 py-0.5 rounded bg-white/5 border border-white/10">{comparison.operations.winner}</span>
+                              </div>
+                              <p className="text-sm text-gray-400">{comparison.operations.interpretation}</p>
+                            </div>
+                            <div className="rounded-lg bg-[#262626] p-4 border border-white/5">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-semibold text-gray-300 tracking-wider">COMPLEXITY</span>
+                                <span className="text-xs text-purple-400 px-2 py-0.5 rounded bg-white/5 border border-white/10">{comparison.complexity.winner}</span>
+                              </div>
+                              <p className="text-sm text-gray-400">{comparison.complexity.interpretation}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500">
+                          <BarChart3 size={32} className="mb-4 text-gray-600" />
+                          <h3 className="text-lg font-medium text-gray-300 mb-2">No Comparison Available</h3>
+                          <p className="max-w-md text-sm">Run at least two experiments to compare the current session with a baseline.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === "share" && (
+                     <div className="flex h-full items-center justify-center animate-in fade-in">
+                       {sharePayload ? (
+                         <div className="max-w-md w-full rounded-xl border border-white/10 bg-[#262626] p-6 text-center">
+                           <Share2 size={32} className="mx-auto text-blue-400 mb-4" />
+                           <h3 className="text-lg font-medium text-white mb-2">Share Link Generated</h3>
+                           <p className="text-sm text-gray-400 mb-6">Anyone with the token can recreate your exact environment snapshot.</p>
+                           <div className="rounded-lg bg-[#121212] p-3 mb-6 border border-white/10">
+                              <code className="text-xs text-gray-300 break-all">{sharePayload.token}</code>
+                           </div>
+                           <div className="flex justify-center">
+                             <button
+                               onClick={() => navigator.clipboard.writeText(sharePayload.token)}
+                               className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors"
+                             >
+                               <Copy size={16} /> Copy Token
+                             </button>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500">
+                           <Share2 size={32} className="mb-4 text-gray-600" />
+                           <h3 className="text-lg font-medium text-gray-300 mb-2">No Share Payload Generated</h3>
+                           <p className="max-w-md text-sm">Click "Share" in the header to generate a snapshot of your workspace.</p>
+                         </div>
+                       )}
+                     </div>
+                  )}
+
+                </div>
+              </Panel>
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
+      </main>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[#8d5e31]">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function ConsolePanel({
-  runResponse,
-  experimentResponse,
-}: {
-  runResponse: PlaygroundRunResponse | null;
-  experimentResponse: PlaygroundExperimentResponse | null;
-}) {
-  const latestExecution = runResponse?.execution ?? experimentResponse?.runs.at(-1)?.execution ?? null;
-  return (
-    <section className="rounded-[28px] border border-black/8 bg-[#17120d] p-5 text-[#f5ead6] shadow-[0_24px_60px_rgba(19,14,10,0.32)]">
-      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#e6bc78]">
-        <Binary size={16} />
-        Console snapshot
-      </div>
-      <pre className="mt-4 min-h-[240px] whitespace-pre-wrap text-sm leading-6 text-[#f5ead6]">
-        {latestExecution?.stdout || "Run once or execute an experiment to inspect stdout here."}
-      </pre>
-      {latestExecution?.stderr ? (
-        <div className="mt-3 rounded-[20px] bg-[#381612] px-4 py-3 text-xs text-[#ffb7a4]">{latestExecution.stderr}</div>
-      ) : null}
-    </section>
-  );
-}
-
-function ExecutionSnapshot({
-  runResponse,
-  experimentResponse,
-}: {
-  runResponse: PlaygroundRunResponse | null;
-  experimentResponse: PlaygroundExperimentResponse | null;
-}) {
-  const latestExecution = runResponse?.execution ?? experimentResponse?.runs.at(-1)?.execution ?? null;
-  return (
-    <section className="rounded-[28px] border border-black/8 bg-white/80 p-5 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#8d5e31]">
-        <Sparkles size={16} />
-        Run profile
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Stat label="Status" value={latestExecution?.status ?? "idle"} />
-        <Stat label="Runtime" value={latestExecution ? formatRuntime(latestExecution.runtime_ms) : "--"} />
-        <Stat label="Backend" value={latestExecution?.backend ?? "--"} />
-        <Stat
-          label="Instrumented"
-          value={latestExecution?.instrumentation ? `${latestExecution.instrumentation.line_numbers.length} lines tracked` : "No"}
-        />
-      </div>
-    </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[18px] border border-black/8 bg-[#f7f4ee] px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d5e31]">{label}</p>
-      <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[#17120d]">{value}</p>
-    </div>
-  );
-}
-
-function ExplanationPanel({ explanation }: { explanation: ReturnType<typeof usePlaygroundStore.getState>["explanation"] }) {
-  if (!explanation) {
-    return <EmptyState icon={BrainCircuit} title="No explanation yet" description="Run an experiment to generate narrative insights from the metrics." />;
-  }
-
-  return (
-    <div className="grid gap-4">
-      <section className="rounded-[28px] border border-black/8 bg-white/82 p-5 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">Headline</p>
-        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#161815]">{explanation.headline}</h3>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-[#4f5047]">{explanation.summary}</p>
-      </section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {explanation.sections.map((section) => (
-          <section key={`${section.kind}-${section.title}`} className="rounded-[24px] border border-black/8 bg-[#fdfbf7] p-5 shadow-[0_12px_30px_rgba(45,35,20,0.06)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d5e31]">{section.kind}</p>
-            <h4 className="mt-2 text-lg font-semibold text-[#17120d]">{section.title}</h4>
-            <p className="mt-3 text-sm leading-6 text-[#4f5047]">{section.body}</p>
-            {section.evidence.length ? (
-              <ul className="mt-4 space-y-2 text-xs text-[#6a6c63]">
-                {section.evidence.map((item) => (
-                  <li key={item}>- {item}</li>
-                ))}
-              </ul>
-            ) : null}
-          </section>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ComparisonPanel({ comparison }: { comparison: ReturnType<typeof usePlaygroundStore.getState>["comparison"] }) {
-  if (!comparison) {
-    return <EmptyState icon={BarChart3} title="No comparison yet" description="Run at least two experiments to compare the latest result against the previous one." />;
-  }
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-      <section className="rounded-[28px] border border-black/8 bg-white/82 p-5 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">Verdict</p>
-        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#17120d]">{comparison.summary.verdict}</h3>
-        <p className="mt-3 text-sm leading-6 text-[#4f5047]">
-          Confidence {Math.round(comparison.summary.confidence * 100)}% | overall winner {comparison.summary.overall_winner}
-        </p>
-        {comparison.summary.tradeoffs.length ? (
-          <ul className="mt-4 space-y-2 text-sm text-[#4f5047]">
-            {comparison.summary.tradeoffs.map((tradeoff) => (
-              <li key={tradeoff}>- {tradeoff}</li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
-      <section className="rounded-[28px] border border-black/8 bg-[#17120d] p-5 text-[#f5ead6] shadow-[0_24px_60px_rgba(19,14,10,0.32)]">
-        <div className="space-y-4">
-          <ComparisonMetric label="Runtime" value={comparison.runtime.interpretation} winner={comparison.runtime.winner} />
-          <ComparisonMetric label="Operations" value={comparison.operations.interpretation} winner={comparison.operations.winner} />
-          <ComparisonMetric label="Complexity" value={comparison.complexity.interpretation} winner={comparison.complexity.winner} />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function ComparisonMetric({ label, value, winner }: { label: string; value: string; winner: string }) {
-  return (
-    <div className="rounded-[20px] bg-white/6 px-4 py-4">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium">{label}</span>
-        <span className="text-[#e6bc78]">{winner}</span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-[#eadcc4]">{value}</p>
-    </div>
-  );
-}
-
-function SharePanel({ sharePayload }: { sharePayload: ReturnType<typeof usePlaygroundStore.getState>["sharePayload"] }) {
-  if (!sharePayload) {
-    return <EmptyState icon={Share2} title="No share payload yet" description="Generate a share token to capture the current workspace, latest run, and analysis." />;
-  }
-
-  return (
-    <section className="rounded-[28px] border border-black/8 bg-white/82 p-5 shadow-[0_16px_40px_rgba(45,35,20,0.08)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8d5e31]">Share token</p>
-      <div className="mt-4 rounded-[22px] border border-black/8 bg-[#f7f4ee] p-4">
-        <p className="break-all font-mono text-xs text-[#3f403a]">{sharePayload.token}</p>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-full bg-[#17120d] px-4 py-2 text-sm font-medium text-[#f7ead5]"
-          onClick={() => navigator.clipboard.writeText(sharePayload.token)}
-        >
-          <Copy size={16} />
-          Copy token
-        </button>
-        <div className="inline-flex items-center rounded-full border border-black/10 bg-white px-4 py-2 text-sm text-[#4f5047]">
-          {sharePayload.share_path}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof Sparkles;
-  title: string;
-  description: string;
-}) {
-  return (
-    <section className="rounded-[28px] border border-dashed border-black/12 bg-white/60 p-8 text-center shadow-[0_10px_24px_rgba(45,35,20,0.05)]">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3e4c8] text-[#8d5e31]">
-        <Icon size={24} />
-      </div>
-      <h3 className="mt-4 text-xl font-semibold tracking-[-0.03em] text-[#17120d]">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-[#5b5d54]">{description}</p>
-    </section>
   );
 }

@@ -88,7 +88,7 @@ export function MonacoSurface({ code, onChange, lineMetrics }: MonacoSurfaceProp
   };
 
   return (
-    <div className="min-h-[420px] overflow-hidden rounded-[28px] border border-white/10 bg-[#07111d] shadow-[0_30px_80px_rgba(1,7,16,0.45)]">
+    <div className="h-full w-full overflow-hidden bg-[#1e1e1e]">
       <MonacoEditor
         height="100%"
         defaultLanguage="python"
