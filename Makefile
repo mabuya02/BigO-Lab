@@ -9,7 +9,7 @@ dev-backend:
 	cd backend && uvicorn app.main:app --reload --port 8000
 
 dev-frontend:
-	cd frontend && pnpm dev
+	cd frontend && NEXT_PUBLIC_PLAYGROUND_API_MODE=backend NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 pnpm dev
 
 # ── Install dependencies ──
 

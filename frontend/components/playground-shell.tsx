@@ -543,15 +543,26 @@ export function PlaygroundShell() {
             <PanelGroup id="editor-console" orientation="vertical">
               <Panel defaultSize={60} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl relative">
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/10 bg-[#1e1e1e] px-4 text-xs">
-                  <div className="flex items-center gap-2 text-gray-300 font-medium">
+                  <div className="flex-1 flex items-center gap-2 text-gray-300 font-medium">
                     <Code2 size={16} className="text-green-500" />
                     <span>Code</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-gray-400 bg-white/5 px-2 py-0.5 rounded cursor-default border border-white/5 hover:bg-white/10 transition-colors">
-                    Python 3.11
+                  
+                  <div className="flex-1 flex justify-center">
+                    <div className="relative group">
+                      <select
+                        className="appearance-none bg-[#262626] border border-white/10 text-gray-300 rounded-md pl-4 pr-8 py-1.5 text-[11px] font-medium tracking-wider outline-none hover:bg-[#333333] hover:text-white transition-all cursor-pointer shadow-sm text-center min-w-[120px]"
+                        defaultValue="python"
+                      >
+                        <option value="python">Python 3.11</option>
+                      </select>
+                      <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
-                  </div>
+                  
+                  <div className="flex-1 flex justify-end"></div>
                 </div>
                 <div className="flex-1 overflow-hidden bg-[#1e1e1e]">
                   <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} />
