@@ -51,13 +51,13 @@ build-frontend:
 # ── Docker ──
 
 docker-build:
-	docker compose build
+	docker compose -f docker/docker-compose.yml build
 
 docker-up:
-	docker compose up --build
+	docker compose -f docker/docker-compose.yml up --build
 
 docker-down:
-	docker compose down
+	docker compose -f docker/docker-compose.yml down
 
 # ── Cleanup ──
 
