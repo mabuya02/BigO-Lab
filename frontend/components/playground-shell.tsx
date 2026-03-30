@@ -240,16 +240,16 @@ export function PlaygroundShell() {
             <div className="w-[2px] h-8 rounded-full bg-white/20 transition-colors" />
           </PanelResizeHandle>
 
-          <Panel defaultSize={65} minSize={30}>
+          <Panel defaultSize={75} minSize={30}>
             <PanelGroup id="editor-console" orientation="vertical">
-              <Panel defaultSize={60} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl relative">
+              <Panel defaultSize={65} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl relative">
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/10 bg-[#1e1e1e] px-4 text-xs">
-                  <div className="flex-1 flex items-center gap-2 text-gray-300 font-medium">
+                  <div className="flex items-center gap-2 text-gray-300 font-medium">
                     <Code2 size={16} className="text-green-500" />
                     <span>Code</span>
                   </div>
                   
-                  <div className="flex-1 flex justify-center">
+                  <div className="flex items-center">
                     <div className="relative group">
                       <select
                         className="appearance-none bg-[#262626] border border-white/10 text-gray-300 rounded-md pl-4 pr-8 py-1.5 text-[11px] font-medium tracking-wider outline-none hover:bg-[#333333] hover:text-white transition-all cursor-pointer shadow-sm text-center min-w-[120px]"
@@ -262,8 +262,6 @@ export function PlaygroundShell() {
                       </svg>
                     </div>
                   </div>
-                  
-                  <div className="flex-1 flex justify-end"></div>
                 </div>
                 <div className="flex-1 overflow-hidden bg-[#1e1e1e]">
                   <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} />

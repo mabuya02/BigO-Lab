@@ -40,7 +40,7 @@ export function LeftPanel({ presetsQuery, groupedPresets }: { presetsQuery: any;
   const topFunctions = experimentResponse?.metrics_snapshot.function_metrics.slice(0, 4) ?? [];
 
   return (
-    <Panel defaultSize={35} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl">
+    <Panel defaultSize={25} minSize={20} className="rounded-xl border border-white/10 bg-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl">
       <div className="flex h-11 shrink-0 items-center gap-1 border-b border-white/10 bg-[#1e1e1e] px-2">
         <TabButton active={leftTab === "library"} onClick={() => setLeftTab("library")} icon={FileText} label="DSA" />
         <TabButton active={leftTab === "settings"} onClick={() => setLeftTab("settings")} icon={Settings} label="Settings" />
