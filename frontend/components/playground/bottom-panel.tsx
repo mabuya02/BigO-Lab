@@ -12,7 +12,6 @@ import {
   Terminal,
 } from "lucide-react";
 import { Panel } from "react-resizable-panels";
-import { MetricChart } from "@/components/metric-chart";
 import type { CodeExecutionResult, PresetRead } from "@/lib/types";
 import { usePlaygroundStore } from "@/store/playground-store";
 import { TabButton, buildSampleInput, formatRuntime } from "./shared";
@@ -265,7 +264,9 @@ export function BottomPanel({
                    <ul className="space-y-4 mt-4 text-xs leading-relaxed text-gray-400">
                      <li className="flex gap-2.5 relative">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#ffc01e] mt-1.5 shrink-0 opacity-80"></span>
-                        <span>As input vectors multiply uniformly, scan the physical <strong>"effort" delta</strong> bounds above.</span> 
+                        <span>
+                          As input vectors multiply uniformly, scan the physical <strong>&quot;effort&quot; delta</strong> bounds above.
+                        </span>
                      </li>
                      <li className="flex gap-2.5 relative">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#00b8a3] mt-1.5 shrink-0 opacity-80"></span>
@@ -391,7 +392,7 @@ export function BottomPanel({
                <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500">
                  <Share2 size={32} className="mb-4 text-gray-600" />
                  <h3 className="text-lg font-medium text-gray-300 mb-2">No Share Payload Generated</h3>
-                 <p className="max-w-md text-sm">Click "Share" in the header to generate a snapshot of your workspace.</p>
+                 <p className="max-w-md text-sm">Click the Share action in the header to generate a snapshot of your workspace.</p>
                </div>
              )}
            </div>

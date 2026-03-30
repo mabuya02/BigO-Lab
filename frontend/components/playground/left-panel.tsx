@@ -1,13 +1,13 @@
 "use client";
 
 import clsx from "clsx";
+import type { UseQueryResult } from "@tanstack/react-query";
 import {
   BrainCircuit,
   Database,
   FileText,
   FlaskConical,
   Gauge,
-  Info,
   LayoutTemplate,
   LoaderCircle,
   Settings,
@@ -15,11 +15,17 @@ import {
 } from "lucide-react";
 import { startTransition, useState } from "react";
 import { Panel } from "react-resizable-panels";
-import type { PresetRead } from "@/lib/types";
+import type { ExecutionBackend, InputKind, InputProfile, PresetCatalogRead, PresetRead } from "@/lib/types";
 import { usePlaygroundStore } from "@/store/playground-store";
 import { TabButton, buildSampleInput } from "./shared";
 
-export function LeftPanel({ presetsQuery, groupedPresets }: { presetsQuery: any; groupedPresets: Record<string, PresetRead[]> }) {
+export function LeftPanel({
+  presetsQuery,
+  groupedPresets,
+}: {
+  presetsQuery: UseQueryResult<PresetCatalogRead, Error>;
+  groupedPresets: Record<string, PresetRead[]>;
+}) {
   const [leftTab, setLeftTab] = useState<"library" | "experiment" | "analysis">("library");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -146,7 +152,7 @@ export function LeftPanel({ presetsQuery, groupedPresets }: { presetsQuery: any;
                   <label className="text-xs font-medium text-gray-300">Data Schema</label>
                   <select
                     value={inputKind}
-                    onChange={(event) => setField("inputKind", event.target.value as any)}
+                    onChange={(event) => setField("inputKind", event.target.value as InputKind)}
                     className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all cursor-pointer"
                   >
                     <option value="array">List/Array</option>
@@ -158,7 +164,7 @@ export function LeftPanel({ presetsQuery, groupedPresets }: { presetsQuery: any;
                   <label className="text-xs font-medium text-gray-300">Memory Profile</label>
                   <select
                     value={inputProfile}
-                    onChange={(event) => setField("inputProfile", event.target.value as any)}
+                    onChange={(event) => setField("inputProfile", event.target.value as InputProfile)}
                     className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-200 outline-none focus:border-white/30 transition-all cursor-pointer"
                   >
                     <option value="random">Random Entropy</option>
@@ -219,7 +225,7 @@ export function LeftPanel({ presetsQuery, groupedPresets }: { presetsQuery: any;
                         <label className="text-xs font-medium text-gray-400">Compute Backend</label>
                         <select
                           value={backend}
-                          onChange={(event) => setField("backend", event.target.value as any)}
+                          onChange={(event) => setField("backend", event.target.value as ExecutionBackend)}
                           className="w-full rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-sm text-gray-300 outline-none"
                         >
                           <option value="auto">Cluster Routing</option>

@@ -1,16 +1,15 @@
 # Big O Playground Backend
 
-Phase 1 backend foundation for Big O Playground.
+Stateless FastAPI backend for:
 
-## Included
-
-- FastAPI application bootstrapping
-- JWT auth with register/login/current-user endpoints
-- SQLAlchemy models for `User`, `Project`, `CodeSnippet`, and `Experiment`
-- PostgreSQL-ready settings with SQLite fallback for local development
-- Redis connectivity scaffolding and health checks
-- Alembic migration scaffold with an initial schema revision
-- Phase 2 execution engine with Docker-first sandboxing, sync runs, and queued jobs
+- code execution
+- experiment runs
+- metrics aggregation
+- complexity estimation
+- explanation generation
+- comparisons
+- preset loading
+- share payload generation
 
 ## Quick Start
 
@@ -19,32 +18,48 @@ cp .env.example .env
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-## Sandbox Image
+## Active API Surface
 
-Build the execution sandbox image before using Docker-backed runs:
+- `GET /api/v1/health/live`
+- `GET /api/v1/health/ready`
+- `GET /api/v1/playground/status`
+- `POST /api/v1/playground/run`
+- `POST /api/v1/playground/experiment`
+- `POST /api/v1/explanations/generate`
+- `POST /api/v1/comparisons/compare`
+- `GET /api/v1/presets`
+- `GET /api/v1/presets/{slug}`
+- `POST /api/v1/shares`
+- `POST /api/v1/shares/resolve`
+- `POST /api/v1/execution/run`
+- `POST /api/v1/execution/jobs`
+- `GET /api/v1/execution/jobs/{job_id}`
+
+## Ollama Cloud Provider
+
+Explanation generation supports two modes:
+
+- `EXPLANATION_PROVIDER=heuristic`
+- `EXPLANATION_PROVIDER=ollama_cloud`
+
+Relevant env vars:
+
+- `EXPLANATION_ALLOW_FALLBACK=true`
+- `OLLAMA_API_KEY=...`
+- `OLLAMA_MODEL=gpt-oss:120b`
+- `OLLAMA_API_BASE_URL=https://ollama.com/api`
+- `OLLAMA_TIMEOUT_SECONDS=20`
+- `OLLAMA_TEMPERATURE=0.2`
+
+If Ollama Cloud fails and fallback is enabled, the backend returns the built-in heuristic explanation instead of failing the request.
+
+## Docker Sandbox
+
+Build the sandbox image before using Docker-backed execution:
 
 ```bash
 docker build -f docker/Dockerfile -t big-o-playground-python-sandbox:latest .
 ```
-
-## Core Endpoints
-
-- `GET /api/v1/health/live`
-- `GET /api/v1/health/ready`
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me`
-- `GET /api/v1/projects`
-- `POST /api/v1/projects`
-- `GET /api/v1/projects/{project_id}/snippets`
-- `POST /api/v1/projects/{project_id}/snippets`
-- `GET /api/v1/projects/{project_id}/experiments`
-- `POST /api/v1/projects/{project_id}/experiments`
-- `GET /api/v1/execution/status`
-- `POST /api/v1/execution/run`
-- `POST /api/v1/execution/jobs`
-- `GET /api/v1/execution/jobs/{job_id}`

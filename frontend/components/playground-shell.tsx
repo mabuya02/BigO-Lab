@@ -161,17 +161,21 @@ export function PlaygroundShell() {
   return (
     <div className="flex h-screen w-full flex-col bg-[#0f0f0f] text-gray-300 font-sans selection:bg-green-500/30">
       <header className="flex h-[50px] shrink-0 items-center justify-between border-b border-white/10 bg-[#1a1a1a] px-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-green-400 to-emerald-600 shadow-md shadow-green-500/20">
+        <button 
+          onClick={() => window.location.reload()} 
+          className="flex text-left items-center gap-3 group hover:opacity-90 transition-opacity cursor-pointer focus:outline-none"
+          title="Refresh Sandbox Environment"
+        >
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-green-400 to-emerald-600 shadow-md shadow-green-500/20 group-hover:shadow-green-500/40 transition-shadow">
             <Binary size={16} className="text-black" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold tracking-wide text-white">Big O Playground</h1>
+            <h1 className="text-sm font-semibold tracking-wide text-white group-hover:text-green-400 transition-colors">Big O Playground</h1>
             <div className="flex items-center gap-2">
               <p className="text-[10px] uppercase tracking-wider text-gray-400">Interactive Runtime Lab</p>
             </div>
           </div>
-        </div>
+        </button>
 
         <div className="flex items-center gap-2">
           <button

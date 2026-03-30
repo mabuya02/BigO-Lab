@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import os
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import patch
 
+import httpx
+
+from app.core.runtime import reset_runtime_state
+from app.core.settings import get_settings
 from app.schemas.complexity import ComplexityEstimateRead, ComplexityFitRead
 from app.schemas.explanation import ExplanationRequest
 from app.schemas.metrics import (
@@ -45,6 +51,14 @@ def build_snapshot(
 
 
 class ExplanationServiceTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        os.environ.pop("EXPLANATION_PROVIDER", None)
+        os.environ.pop("OLLAMA_API_KEY", None)
+        os.environ.pop("OLLAMA_MODEL", None)
+        os.environ.pop("EXPLANATION_ALLOW_FALLBACK", None)
+        get_settings.cache_clear()
+        reset_runtime_state()
+
     def test_identifies_dominant_loop_and_quadratic_signal(self) -> None:
         snapshot = build_snapshot(
             runtime_points=[(10, 15), (20, 55), (40, 205), (80, 805)],
@@ -128,6 +142,79 @@ class ExplanationServiceTests(unittest.TestCase):
         self.assertTrue(any("small number of runtime samples" in caveat for caveat in response.caveats))
         self.assertTrue(any(section.kind == "caveat" for section in response.sections))
         self.assertIsNone(response.complexity_class)
+
+    def test_uses_ollama_cloud_when_enabled(self) -> None:
+        os.environ["EXPLANATION_PROVIDER"] = "ollama_cloud"
+        os.environ["OLLAMA_API_KEY"] = "test-key"
+        os.environ["OLLAMA_MODEL"] = "gpt-oss:120b"
+        get_settings.cache_clear()
+        reset_runtime_state()
+
+        snapshot = build_snapshot(runtime_points=[(16, 12), (32, 21), (64, 33)])
+        request = ExplanationRequest(metrics_snapshot=snapshot)
+
+        cloud_response = {
+            "headline": "Mocked cloud explanation",
+            "summary": "This explanation came from Ollama Cloud.",
+            "complexity_class": "O(n)",
+            "confidence": 0.82,
+            "dominant_line_number": None,
+            "dominant_function_name": None,
+            "sections": [
+                {
+                    "kind": "summary",
+                    "title": "Cloud summary",
+                    "body": "Structured output from the mocked cloud provider.",
+                    "evidence": ["provider=ollama_cloud"],
+                }
+            ],
+            "caveats": [],
+        }
+
+        with patch(
+            "app.integrations.ollama_cloud.httpx.post",
+            return_value=_FakeHttpResponse({"message": {"content": _json_dump(cloud_response)}}),
+        ):
+            response = ExplanationService.generate(request)
+
+        self.assertEqual(response.headline, "Mocked cloud explanation")
+        self.assertEqual(response.complexity_class, "O(n)")
+        self.assertEqual(response.sections[0].title, "Cloud summary")
+
+    def test_falls_back_to_heuristics_when_ollama_cloud_fails(self) -> None:
+        os.environ["EXPLANATION_PROVIDER"] = "ollama_cloud"
+        os.environ["OLLAMA_API_KEY"] = "test-key"
+        os.environ["OLLAMA_MODEL"] = "gpt-oss:120b"
+        os.environ["EXPLANATION_ALLOW_FALLBACK"] = "true"
+        get_settings.cache_clear()
+        reset_runtime_state()
+
+        snapshot = build_snapshot(runtime_points=[(8, 10), (16, 40), (32, 160)])
+        request = ExplanationRequest(metrics_snapshot=snapshot)
+
+        with patch("app.integrations.ollama_cloud.httpx.post", side_effect=httpx.ConnectError("network down")):
+            response = ExplanationService.generate(request)
+
+        self.assertTrue(response.headline)
+        self.assertTrue(any("fell back to the local heuristic generator" in caveat for caveat in response.caveats))
+        self.assertTrue(any(section.kind == "caveat" for section in response.sections))
+
+
+def _json_dump(payload: dict) -> str:
+    import json
+
+    return json.dumps(payload)
+
+
+class _FakeHttpResponse:
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return self._payload
 
 
 if __name__ == "__main__":

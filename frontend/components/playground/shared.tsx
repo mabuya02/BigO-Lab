@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import type { LucideIcon } from "lucide-react";
 import type { PlaygroundExperimentResponse, PresetRead, ComparisonComplexityInput } from "@/lib/types";
 
 export function buildSampleInput(preset: PresetRead) {
@@ -29,7 +30,7 @@ export function formatRuntime(runtimeMs: number) {
   return runtimeMs >= 1000 ? `${(runtimeMs / 1000).toFixed(2)} s` : `${runtimeMs.toFixed(0)} ms`;
 }
 
-export function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) {
+export function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: LucideIcon; label: string }) {
   return (
     <button
       type="button"

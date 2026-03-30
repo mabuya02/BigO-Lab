@@ -54,6 +54,14 @@ class Settings(BaseModel):
     cache_analysis_ttl_seconds: int = 180
     cache_share_ttl_seconds: int = 300
 
+    explanation_provider: str = "heuristic"
+    explanation_allow_fallback: bool = True
+    ollama_api_base_url: str = "https://ollama.com/api"
+    ollama_api_key: str | None = None
+    ollama_model: str = "gpt-oss:120b"
+    ollama_timeout_seconds: float = 20.0
+    ollama_temperature: float = 0.2
+
     cors_allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 
@@ -109,5 +117,12 @@ def get_settings() -> Settings:
         cache_presets_ttl_seconds=int(os.getenv("CACHE_PRESETS_TTL_SECONDS", "600")),
         cache_analysis_ttl_seconds=int(os.getenv("CACHE_ANALYSIS_TTL_SECONDS", "180")),
         cache_share_ttl_seconds=int(os.getenv("CACHE_SHARE_TTL_SECONDS", "300")),
+        explanation_provider=os.getenv("EXPLANATION_PROVIDER", "heuristic"),
+        explanation_allow_fallback=_as_bool(os.getenv("EXPLANATION_ALLOW_FALLBACK"), True),
+        ollama_api_base_url=os.getenv("OLLAMA_API_BASE_URL", "https://ollama.com/api"),
+        ollama_api_key=os.getenv("OLLAMA_API_KEY"),
+        ollama_model=os.getenv("OLLAMA_MODEL", "gpt-oss:120b"),
+        ollama_timeout_seconds=float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "20")),
+        ollama_temperature=float(os.getenv("OLLAMA_TEMPERATURE", "0.2")),
         cors_allowed_origins=origins,
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 from math import log
 from typing import Iterable
 
+from app.integrations.ollama_cloud import OllamaCloudError, OllamaCloudExplanationClient
 from app.core.runtime import cached_call
 from app.core.settings import get_settings
 from app.schemas.explanation import ExplanationRequest, ExplanationResponse, ExplanationSection
@@ -15,17 +16,62 @@ class ExplanationService:
     @classmethod
     def generate(cls, payload: ExplanationRequest) -> ExplanationResponse:
         settings = get_settings()
+        cache_key_payload = {
+            "provider": settings.explanation_provider,
+            "ollama_model": settings.ollama_model,
+            "payload": payload.model_dump(mode="json"),
+        }
 
         def factory() -> dict:
-            return cls._generate_uncached(payload).model_dump()
+            return cls._generate_with_provider(payload).model_dump()
 
         cached_payload, _ = cached_call(
             "explanations",
-            payload.model_dump(mode="json"),
+            cache_key_payload,
             ttl_seconds=settings.cache_analysis_ttl_seconds,
             factory=factory,
         )
         return ExplanationResponse.model_validate(cached_payload)
+
+    @classmethod
+    def _generate_with_provider(cls, payload: ExplanationRequest) -> ExplanationResponse:
+        settings = get_settings()
+        provider = settings.explanation_provider.strip().lower()
+        if provider == "ollama_cloud":
+            client = OllamaCloudExplanationClient(settings)
+            try:
+                return client.generate(payload)
+            except OllamaCloudError:
+                if not settings.explanation_allow_fallback:
+                    raise
+                fallback = cls._generate_uncached(payload)
+                fallback_caveat = "Ollama Cloud was unavailable, so the explanation fell back to the local heuristic generator."
+                if fallback_caveat not in fallback.caveats:
+                    caveats = [fallback_caveat, *fallback.caveats]
+                    sections = list(fallback.sections)
+                    caveat_section = next((section for section in sections if section.kind == "caveat"), None)
+                    if caveat_section is not None:
+                        updated_section = caveat_section.model_copy(
+                            update={
+                                "body": f"{fallback_caveat} {caveat_section.body}".strip(),
+                                "evidence": [fallback_caveat, *caveat_section.evidence],
+                            }
+                        )
+                        sections = [
+                            updated_section if section is caveat_section else section
+                            for section in sections
+                        ]
+                    else:
+                        sections.append(
+                            ExplanationSection(
+                                kind="caveat",
+                                title="Caveats",
+                                body=fallback_caveat,
+                                evidence=[fallback_caveat],
+                            )
+                        )
+                    return fallback.model_copy(update={"caveats": caveats, "sections": sections[: payload.max_sections]})
+        return cls._generate_uncached(payload)
 
     @classmethod
     def _generate_uncached(cls, payload: ExplanationRequest) -> ExplanationResponse:
