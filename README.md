@@ -291,6 +291,4 @@ Each preset includes starter code, recommended input sizes, educational notes, a
 
 ---
 
-## 📄 License
 
-This project is open source. See the [LICENSE](LICENSE) file for details.
