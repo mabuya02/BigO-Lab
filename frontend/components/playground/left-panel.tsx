@@ -26,9 +26,6 @@ export function LeftPanel({
   presetsQuery: UseQueryResult<PresetCatalogRead, Error>;
   groupedPresets: Record<string, PresetRead[]>;
 }) {
-  const [leftTab, setLeftTab] = useState<"library" | "experiment" | "analysis">("library");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
   const {
     code,
     selectedPresetSlug,
@@ -40,10 +37,14 @@ export function LeftPanel({
     instrument,
     timeoutSeconds,
     memoryLimitMb,
+    leftTab,
     setField,
     applyPreset,
     experimentResponse,
   } = usePlaygroundStore();
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const setLeftTab = (tab: "library" | "experiment" | "analysis") => setField("leftTab", tab);
 
   const lineMetrics = experimentResponse?.metrics_snapshot.line_metrics ?? [];
   const topFunctions = experimentResponse?.metrics_snapshot.function_metrics.slice(0, 4) ?? [];
@@ -262,9 +263,17 @@ export function LeftPanel({
           <div className="space-y-5 animate-in fade-in duration-300 pb-8">
             <div className="rounded-xl border border-white/10 bg-[#1a1a1a] p-5 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-[#00b8a3]"></div>
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#00b8a3] mb-4">
-                <Gauge size={14} /> Empirical Complexity
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#00b8a3]">
+                  <Gauge size={14} /> Empirical Complexity
+                </div>
+                {experimentResponse ? (
+                   <span className="text-[10px] bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded font-mono border border-green-500/20">LIVE</span>
+                ) : (
+                   <span className="text-[10px] bg-white/5 text-gray-500 px-1.5 py-0.5 rounded font-mono border border-white/5">STALE</span>
+                )}
               </div>
+
               {experimentResponse?.complexity_estimate ? (
                 <div>
                   <p className="text-4xl font-bold tracking-tight text-white font-mono drop-shadow-md">
@@ -276,9 +285,6 @@ export function LeftPanel({
                   <div className="mt-4 flex items-center gap-2">
                      <span className="inline-flex items-center rounded-sm bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-400 ring-1 ring-white/10">
                        R² Fit Confidence: <strong className="text-white ml-1">{Math.round(experimentResponse.complexity_estimate.confidence * 100)}%</strong>
-                     </span>
-                     <span className="inline-flex items-center rounded-sm bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-400 ring-1 ring-white/10">
-                       Valid Models Checked: {experimentResponse.complexity_estimate.alternatives.length}
                      </span>
                   </div>
                 </div>

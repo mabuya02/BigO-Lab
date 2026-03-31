@@ -25,6 +25,7 @@ interface PlaygroundState {
   instrument: boolean;
   timeoutSeconds: number;
   memoryLimitMb: number;
+  leftTab: "library" | "experiment" | "analysis";
   activeTab: "console" | "runtime" | "operations" | "explanation" | "comparison" | "share";
   runResponse: PlaygroundRunResponse | null;
   experimentResponse: PlaygroundExperimentResponse | null;
@@ -55,6 +56,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
       instrument: true,
       timeoutSeconds: 3,
       memoryLimitMb: 128,
+      leftTab: "library",
       activeTab: "console",
       runResponse: null,
       experimentResponse: null,
@@ -62,7 +64,20 @@ export const usePlaygroundStore = create<PlaygroundState>()(
       explanation: null,
       comparison: null,
       sharePayload: null,
-      setField: (key, value) => set(() => ({ [key]: value })),
+      setField: (key, value) => set((state) => {
+        // If critical inputs change, clear previous analysis results to avoid "stale/dummy data" confusion
+        const clearResults = (key === "code" || key === "inputSizesText" || key === "inputKind" || key === "inputProfile" || key === "repetitions");
+        return { 
+          [key]: value,
+          ...(clearResults ? { 
+            experimentResponse: null, 
+            explanation: null, 
+            comparison: null, 
+            runResponse: null,
+            sharePayload: null 
+          } : {})
+        };
+      }),
       applyPreset: (preset, sampleInput) =>
         set(() => ({
           selectedPresetSlug: preset.slug,
@@ -71,6 +86,11 @@ export const usePlaygroundStore = create<PlaygroundState>()(
           inputSizesText: preset.default_input_sizes.join(", "),
           inputKind: preset.input_kind,
           inputProfile: preset.input_profile,
+          leftTab: "experiment",
+          experimentResponse: null,
+          explanation: null,
+          comparison: null,
+          runResponse: null,
           sharePayload: null,
         })),
       publishRun: (payload) =>
@@ -83,7 +103,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
         set((state) => ({
           previousExperimentResponse: state.experimentResponse,
           experimentResponse: payload,
-          activeTab: "runtime",
+          leftTab: "analysis",   // Auto-focus the analysis metrics
+          activeTab: "runtime",  // Show the distribution in bottom panel
           sharePayload: null,
         })),
       publishExplanation: (payload) =>
