@@ -261,19 +261,56 @@ class ExecutionService:
 
     @classmethod
     def _build_instrumented_runtime_source(cls, instrumented_source: str) -> str:
-        module = ast.parse(instrumented_source, mode="exec")
-        prologue, body = cls._split_module_prologue(module.body)
+        tree = ast.parse(instrumented_source, mode="exec")
+        prologue, body = cls._split_module_prologue(tree.body)
+        
+        # Check if the code has any top-level expressions or calls that might act as an entry point
+        has_top_level_call = False
+        last_function_name = None
+        
+        for node in body:
+            if isinstance(node, (ast.Expr, ast.Call)):
+                has_top_level_call = True
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                last_function_name = node.name
+                
+        auto_entry_code = ""
+        # If no top-level call found, and we have a function named 'run' or the last function defined,
+        # inject a caller that reads from stdin and passes it to that function.
+        if not has_top_level_call and last_function_name:
+            # We look for 'run' first as a convention, otherwise use the last defined function
+            entry_name = "run" if any(isinstance(n, ast.FunctionDef) and n.name == "run" for n in body) else last_function_name
+            auto_entry_code = f"""
+import sys as _big_o_sys
+import json as _big_o_json
+try:
+    _raw_input = _big_o_sys.stdin.read().strip()
+    if _raw_input:
+        try:
+            _decoded_input = _big_o_json.loads(_raw_input)
+        except _big_o_json.JSONDecodeError:
+            _decoded_input = _raw_input
+        {entry_name}(_decoded_input)
+except Exception:
+    pass
+"""
+
         runtime_prelude = ast.parse(TRACKER_RUNTIME_SOURCE, mode="exec").body
         emit_metrics = ast.parse("__big_o_emit_metrics()", mode="exec").body
+        
+        if auto_entry_code:
+            auto_entry_ast = ast.parse(auto_entry_code, mode="exec").body
+            body.extend(auto_entry_ast)
+            
         wrapped_body = ast.Try(
             body=body,
             handlers=[],
             orelse=[],
             finalbody=emit_metrics,
         )
-        module.body = [*prologue, *runtime_prelude, wrapped_body]
-        ast.fix_missing_locations(module)
-        return ast.unparse(module)
+        tree.body = [*prologue, *runtime_prelude, wrapped_body]
+        ast.fix_missing_locations(tree)
+        return ast.unparse(tree)
 
     @classmethod
     def _extract_instrumentation(cls, stderr: str, metadata) -> tuple[str, ExecutionInstrumentationReport | None]:

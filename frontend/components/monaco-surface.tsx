@@ -44,16 +44,16 @@ function deriveLineComplexity(
     if (normalized.includes("N^3") || normalized.includes("N³")) {
       return { label: "O(N³)", cssClass: "complexity-label complexity-o-n3" };
     }
-    if (normalized.includes("NLOGN") || normalized.includes("N LOG N")) {
-      return { label: "O(N·log N)", cssClass: "complexity-label complexity-o-n" };
+    if (normalized.includes("NLOGN") || normalized.includes("N·LOGN") || normalized.includes("NLOG N")) {
+      return { label: "O(N·log N)", cssClass: "complexity-label complexity-o-nlogn" };
     }
     if (normalized.includes("LOGN") || normalized.includes("LOG N")) {
-      return { label: "O(log N)", cssClass: "complexity-label complexity-o-1" };
+      return { label: "O(log N)", cssClass: "complexity-label complexity-o-logn" };
     }
-    if (normalized.includes("2^N")) {
-      return { label: "O(2ᴺ)", cssClass: "complexity-label complexity-o-n4" };
+    if (normalized.includes("2^N") || normalized.includes("2^N")) {
+      return { label: "O(2ᴺ)", cssClass: "complexity-label complexity-o-exp" };
     }
-    if (normalized === "O(N)" || normalized === "O(N)") {
+    if (normalized === "O(N)" || normalized.includes("(N)")) {
       return { label: "O(N)", cssClass: "complexity-label complexity-o-n" };
     }
     // Fallback: show the raw estimated class

@@ -53,99 +53,128 @@ export function BottomPanel({
         )}
 
         {activeTab === "console" && (
-          <div className="flex flex-col h-full gap-4">
-            <div className="flex-1 flex flex-col min-h-0 bg-[#0f0f0f] rounded-xl border border-white/10 overflow-hidden shadow-inner ring-1 ring-white/5">
-              {/* Terminal Header */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#1a1a1a]">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/80 shadow-sm" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 shadow-sm" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/80 shadow-sm" />
-                  </div>
-                  <span className="text-[10px] font-mono text-gray-500 ml-2 uppercase tracking-widest">sandbox-terminal</span>
+          <div className="flex flex-col h-full bg-[#0f0f0f] rounded-xl border border-white/10 overflow-hidden shadow-2xl relative ring-1 ring-white/5">
+            {/* Terminal Chrome Header */}
+            <div className="flex h-10 shrink-0 items-center justify-between px-4 border-b border-white/5 bg-[#1a1a1a]">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5 mr-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/80 shadow-sm" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 shadow-sm" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/80 shadow-sm" />
                 </div>
-                {latestExecution && (
-                  <div className="flex items-center gap-3">
-                    <span className={clsx("text-[9px] uppercase tracking-widest px-2 py-0.5 rounded font-bold border", latestExecution.status === "completed" ? "text-green-500 bg-green-500/10 border-green-500/20" : "text-red-500 bg-red-500/10 border-red-500/20")}>
-                      {latestExecution.status === "completed" ? "SUCCESS" : "ERROR"}
-                    </span>
-                    <span className="text-[10px] font-mono text-gray-500">{formatRuntime(latestExecution.runtime_ms)}</span>
-                  </div>
-                )}
+                <div className="text-[10px] font-mono font-semibold tracking-wider text-gray-500 flex items-center gap-2 uppercase">
+                   <Terminal size={12} className="text-green-500"/>
+                   sandbox-session-v2
+                </div>
               </div>
+              <div className="flex items-center gap-3">
+                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-gray-600 uppercase">
+                    UTC-0:00
+                 </div>
+                 {latestExecution && (
+                   <span className={clsx("text-[9px] uppercase tracking-widest px-2 py-0.5 rounded font-bold border shadow-sm", latestExecution.status === "completed" ? "text-green-500 bg-green-500/10 border-green-500/20" : "text-red-500 bg-red-500/10 border-red-500/20")}>
+                     {latestExecution.status === "completed" ? "PROCESS SUCCESS" : "PROCESS FAILED"}
+                   </span>
+                 )}
+              </div>
+            </div>
 
-              {/* Unified Terminal Content */}
-              <div className="flex-1 overflow-y-auto p-4 font-mono custom-scrollbar">
-                <div className="space-y-4">
-                  {/* Input Block */}
-                  <div className="group">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-green-400 font-bold tracking-tighter">stdin</span>
-                      <button
-                        type="button"
-                        className="opacity-0 group-hover:opacity-100 bg-white/5 hover:bg-white/10 border border-white/10 px-1.5 py-0.5 rounded text-[10px] text-gray-500 transition-all uppercase tracking-tighter"
-                        onClick={() => { if (selectedPreset) setField("stdin", buildSampleInput(selectedPreset)); }}
-                      >
-                        [Load Sample]
-                      </button>
+            {/* Scrollable Console Buffer */}
+            <div className="flex-1 overflow-y-auto p-5 font-mono custom-scrollbar selection:bg-[#00f2fe]/20 scroll-smooth">
+              <div className="max-w-4xl mx-auto space-y-6">
+                 {/* Greeting / Context */}
+                 <div className="space-y-1 opacity-50">
+                    <div className="text-[10px] text-gray-500 flex items-center gap-2">
+                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                       Big O Laboratory Runtime Environment v2.4.1 (linux/amd64)
                     </div>
-                    <div className="flex gap-3">
-                      <span className="text-gray-600 select-none mt-1 leading-none">&gt;</span>
-                      <textarea
-                        value={stdin}
-                        onChange={(event) => setField("stdin", event.target.value)}
-                        className="flex-1 min-h-[60px] max-h-[120px] bg-transparent text-sm text-gray-300 outline-none border-none resize-none p-0 leading-relaxed placeholder:text-gray-700"
-                        spellCheck={false}
-                        placeholder="Type input here or load sample..."
-                      />
-                    </div>
-                  </div>
+                    <div className="text-[10px] text-gray-500">Connected to stateless node clusters (local-thread). Running isolated execution.</div>
+                 </div>
 
-                  {/* Output Block */}
-                  <div className="pt-4 border-t border-white/5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-blue-400 font-bold tracking-tighter">stdout</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="text-gray-600 select-none transition-colors group-hover:text-gray-400">➜</span>
-                      <div className="flex-1">
-                        {latestExecution ? (
-                          <div className="space-y-4">
-                            <pre className="text-sm text-white font-mono whitespace-pre-wrap leading-relaxed">
-                              {latestExecution.stdout || <span className="text-gray-700 italic">No output captured</span>}
-                            </pre>
-                            {latestExecution.stderr && (
-                              <div className="mt-4">
-                                <div className="text-red-400/50 text-[10px] uppercase font-bold mb-1 tracking-wider">stderr</div>
-                                <div className="rounded bg-red-500/10 px-4 py-3 text-sm text-red-500/90 font-mono whitespace-pre-wrap border border-red-500/20 shadow-sm leading-relaxed">
-                                  {latestExecution.stderr}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-700 italic font-mono flex items-center gap-2">
-                            <span className="animate-pulse">_</span>
-                            Waiting for execution...
-                          </div>
-                        )}
+                 {/* Terminal Session Content */}
+                 <div className="space-y-4">
+                    {/* User Command / Stdin Section */}
+                    <div className="group border-l-2 border-white/5 pl-4 py-1 hover:border-green-500/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold text-gray-600 tracking-tighter uppercase">Standard Input</span>
+                        <div className="h-px flex-1 bg-white/[0.03]"></div>
+                        <button
+                          type="button"
+                          className="px-2 py-0.5 rounded text-[8px] bg-white/5 border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all uppercase opacity-0 group-hover:opacity-100"
+                          onClick={() => { if (selectedPreset) setField("stdin", buildSampleInput(selectedPreset)); }}
+                        >
+                          [Import Sample]
+                        </button>
+                      </div>
+                      <div className="flex gap-4">
+                        <span className="text-[#34d399] select-none font-bold text-sm leading-none mt-1">$</span>
+                        <textarea
+                          value={stdin}
+                          onChange={(event) => setField("stdin", event.target.value)}
+                          className="flex-1 min-h-[40px] max-h-[160px] bg-transparent text-sm text-gray-300 outline-none border-none resize-none p-0 leading-relaxed font-mono placeholder:text-gray-800"
+                          spellCheck={false}
+                          placeholder="Type input here..."
+                        />
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Terminal Footer */}
-              <div className="flex h-8 shrink-0 items-center justify-between border-t border-white/5 bg-[#1a1a1a]/50 px-4">
-                <div className="flex items-center gap-4 text-[10px] text-gray-600 font-mono">
-                  <div className="flex items-center gap-1.5"><Activity size={10}/> {latestExecution?.backend ?? "ready"}</div>
-                  <div className="flex items-center gap-1.5 italic opacity-50">UTF-8 environment</div>
-                </div>
-                <div className="flex items-center gap-2 text-[9px] text-gray-700">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-white/5">CTRL+S to focus</div>
-                </div>
+                    {/* Process Output Section */}
+                    <div className="group border-l-2 border-white/5 pl-4 py-1 hover:border-blue-500/30 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold text-gray-600 tracking-tighter uppercase font-mono">Process Output</span>
+                        <div className="h-px flex-1 bg-white/[0.03]"></div>
+                        {latestExecution && <span className="text-[9px] font-mono text-gray-500 italic lowercase">{latestExecution.runtime_ms}ms wall-clock</span>}
+                      </div>
+
+                      <div className="flex gap-4">
+                        <span className="text-gray-600 select-none font-bold text-sm leading-none mt-1 opacity-40">➜</span>
+                        <div className="flex-1 w-full overflow-hidden">
+                           {!latestExecution ? (
+                             <div className="text-xs text-gray-700 italic space-y-1">
+                                <p className="animate-pulse">_ system is idle. submit code for processing...</p>
+                             </div>
+                           ) : (
+                             <div className="space-y-4 font-mono">
+                                {latestExecution.stdout ? (
+                                   <pre className="text-sm text-blue-50/90 whitespace-pre-wrap leading-relaxed overflow-x-auto selection:bg-[#007aff]/30 drop-shadow-sm">
+                                      {latestExecution.stdout}
+                                   </pre>
+                                ) : (
+                                   <div className="text-xs text-gray-700 italic">null sequence (no stdout)</div>
+                                )}
+
+                                {latestExecution.stderr && (
+                                   <div className="mt-4 rounded-lg bg-red-500/[0.04] border border-red-500/10 p-4 shadow-sm">
+                                      <div className="flex items-center gap-2 mb-2 opacity-60">
+                                         <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                                         <span className="text-[10px] font-bold text-red-500/80 uppercase tracking-widest">Runtime Buffer (stderr)</span>
+                                      </div>
+                                      <pre className="text-sm text-red-400/90 whitespace-pre-wrap font-mono leading-relaxed selection:bg-red-500/20">
+                                         {latestExecution.stderr}
+                                      </pre>
+                                   </div>
+                                )}
+                             </div>
+                           )}
+                        </div>
+                      </div>
+                    </div>
+                 </div>
+                 <div ref={(el) => { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' }); }} />
               </div>
+            </div>
+
+            {/* Terminal Footer Console Bar */}
+            <div className="h-8 shrink-0 border-t border-white/5 bg-[#1a1a1a]/40 px-4 flex items-center justify-between pointer-events-none select-none">
+               <div className="flex items-center gap-4 text-[9px] font-mono text-gray-600 uppercase tracking-tighter font-semibold">
+                  <span className="flex items-center gap-1.5"><Activity size={10} className="text-gray-700"/> {latestExecution?.backend ?? "stateless-mode"}</span>
+                  <span className="opacity-20">|</span>
+                  <span className="hidden sm:inline">buffer-encoding: utf-8</span>
+               </div>
+               <div className="flex items-center gap-3">
+                  <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></div>
+                  <span className="text-[9px] font-mono text-gray-700 font-bold uppercase tracking-widest">Ready</span>
+               </div>
             </div>
           </div>
         )}
