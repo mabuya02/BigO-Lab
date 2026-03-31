@@ -53,58 +53,98 @@ export function BottomPanel({
         )}
 
         {activeTab === "console" && (
-          <div className="flex flex-col h-full gap-4 lg:flex-row">
-            <div className="flex-1 flex flex-col space-y-3 min-w-[50%]">
-              <div className="flex items-center gap-3">
-                <label className="text-xs font-semibold text-gray-300">Input</label>
-                <button
-                  type="button"
-                  className="bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded text-[11px] text-gray-400 transition-colors"
-                  onClick={() => { if (selectedPreset) setField("stdin", buildSampleInput(selectedPreset)); }}
-                >
-                  Sample
-                </button>
-              </div>
-              <textarea
-                value={stdin}
-                onChange={(event) => setField("stdin", event.target.value)}
-                className="flex-1 min-h-[120px] w-full resize-none rounded-lg border border-white/10 bg-[#121212] px-4 py-3 text-sm text-gray-300 outline-none focus:border-white/20 transition-colors font-mono"
-                spellCheck={false}
-                placeholder="Standard input..."
-              />
-            </div>
-            <div className="flex-1 flex flex-col space-y-3 min-w-[50%]">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-gray-300">Output</label>
+          <div className="flex flex-col h-full gap-4">
+            <div className="flex-1 flex flex-col min-h-0 bg-[#0f0f0f] rounded-xl border border-white/10 overflow-hidden shadow-inner ring-1 ring-white/5">
+              {/* Terminal Header */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#1a1a1a]">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/80 shadow-sm" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 shadow-sm" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/80 shadow-sm" />
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-500 ml-2 uppercase tracking-widest">sandbox-terminal</span>
+                </div>
                 {latestExecution && (
-                  <span className={clsx("text-xs px-2 py-0.5 rounded bg-white/5 font-medium border border-white/10", latestExecution.status === "completed" ? "text-green-500" : "text-red-500")}>
-                    {latestExecution.status === "completed" ? "Accepted" : "Runtime Error"}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className={clsx("text-[9px] uppercase tracking-widest px-2 py-0.5 rounded font-bold border", latestExecution.status === "completed" ? "text-green-500 bg-green-500/10 border-green-500/20" : "text-red-500 bg-red-500/10 border-red-500/20")}>
+                      {latestExecution.status === "completed" ? "SUCCESS" : "ERROR"}
+                    </span>
+                    <span className="text-[10px] font-mono text-gray-500">{formatRuntime(latestExecution.runtime_ms)}</span>
+                  </div>
                 )}
               </div>
-              <div className="flex-1 min-h-[120px] rounded-lg border border-white/10 bg-[#121212] p-4 overflow-y-auto w-full">
-                {latestExecution ? (
-                  <div className="space-y-4">
-                    <div>
-                      <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{latestExecution.stdout || <span className="opacity-50">No stdout</span>}</pre>
+
+              {/* Unified Terminal Content */}
+              <div className="flex-1 overflow-y-auto p-4 font-mono custom-scrollbar">
+                <div className="space-y-4">
+                  {/* Input Block */}
+                  <div className="group">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-green-400 font-bold tracking-tighter">stdin</span>
+                      <button
+                        type="button"
+                        className="opacity-0 group-hover:opacity-100 bg-white/5 hover:bg-white/10 border border-white/10 px-1.5 py-0.5 rounded text-[10px] text-gray-500 transition-all uppercase tracking-tighter"
+                        onClick={() => { if (selectedPreset) setField("stdin", buildSampleInput(selectedPreset)); }}
+                      >
+                        [Load Sample]
+                      </button>
                     </div>
-                    {latestExecution.stderr && (
-                      <div>
-                        <div className="rounded bg-red-500/10 px-3 py-2 text-sm text-red-500 font-mono whitespace-pre-wrap">
-                          {latestExecution.stderr}
-                        </div>
+                    <div className="flex gap-3">
+                      <span className="text-gray-600 select-none mt-1 leading-none">&gt;</span>
+                      <textarea
+                        value={stdin}
+                        onChange={(event) => setField("stdin", event.target.value)}
+                        className="flex-1 min-h-[60px] max-h-[120px] bg-transparent text-sm text-gray-300 outline-none border-none resize-none p-0 leading-relaxed placeholder:text-gray-700"
+                        spellCheck={false}
+                        placeholder="Type input here or load sample..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Output Block */}
+                  <div className="pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-blue-400 font-bold tracking-tighter">stdout</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="text-gray-600 select-none transition-colors group-hover:text-gray-400">➜</span>
+                      <div className="flex-1">
+                        {latestExecution ? (
+                          <div className="space-y-4">
+                            <pre className="text-sm text-white font-mono whitespace-pre-wrap leading-relaxed">
+                              {latestExecution.stdout || <span className="text-gray-700 italic">No output captured</span>}
+                            </pre>
+                            {latestExecution.stderr && (
+                              <div className="mt-4">
+                                <div className="text-red-400/50 text-[10px] uppercase font-bold mb-1 tracking-wider">stderr</div>
+                                <div className="rounded bg-red-500/10 px-4 py-3 text-sm text-red-500/90 font-mono whitespace-pre-wrap border border-red-500/20 shadow-sm leading-relaxed">
+                                  {latestExecution.stderr}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-700 italic font-mono flex items-center gap-2">
+                            <span className="animate-pulse">_</span>
+                            Waiting for execution...
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div className="pt-3 border-t border-white/10 flex gap-4 text-xs text-gray-500">
-                      <div className="flex items-center gap-1.5"><Activity size={12}/> {formatRuntime(latestExecution.runtime_ms)}</div>
-                      <div className="flex items-center gap-1.5"><Database size={12}/> {latestExecution.backend}</div>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-gray-500 italic px-4 text-center">
-                    Run the code or submit an experiment to see the output.
-                  </div>
-                )}
+                </div>
+              </div>
+
+              {/* Terminal Footer */}
+              <div className="flex h-8 shrink-0 items-center justify-between border-t border-white/5 bg-[#1a1a1a]/50 px-4">
+                <div className="flex items-center gap-4 text-[10px] text-gray-600 font-mono">
+                  <div className="flex items-center gap-1.5"><Activity size={10}/> {latestExecution?.backend ?? "ready"}</div>
+                  <div className="flex items-center gap-1.5 italic opacity-50">UTF-8 environment</div>
+                </div>
+                <div className="flex items-center gap-2 text-[9px] text-gray-700">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-white/5">CTRL+S to focus</div>
+                </div>
               </div>
             </div>
           </div>

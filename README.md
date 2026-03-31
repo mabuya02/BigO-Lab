@@ -6,7 +6,7 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 
 ---
 
-## ✨ Features
+## Features
 
 - **Monaco Code Editor** — Full-featured Python editor with syntax highlighting and line-level runtime heatmaps.
 - **Preset Algorithm Library** — Built-in collection of classic algorithms (sorting, searching, recursion, DP) with curated starter code.
@@ -22,7 +22,7 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -54,7 +54,7 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -92,7 +92,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1
 
 ---
 
-## 🐳 Docker
+## Docker
 
 Run the full stack in containers with a single command:
 
@@ -117,7 +117,7 @@ make docker-down    # Stop and remove containers
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Frontend Environment
 
@@ -154,7 +154,7 @@ See [`backend/.env.example`](backend/.env.example) for all options.
 
 ---
 
-## 🔌 API Overview
+## API Overview
 
 All endpoints are prefixed with `/api/v1`. Interactive docs at `/docs`.
 
@@ -174,7 +174,7 @@ All endpoints are prefixed with `/api/v1`. Interactive docs at `/docs`.
 
 ---
 
-## 📚 Preset Algorithm Library
+## Preset Algorithm Library
 
 The backend ships with a curated set of algorithms for immediate experimentation:
 
@@ -191,7 +191,7 @@ Each preset includes starter code, recommended input sizes, educational notes, a
 
 ---
 
-## 🧪 Makefile Commands
+## Makefile Commands
 
 | Command | Description |
 |---------|-------------|
@@ -206,7 +206,7 @@ Each preset includes starter code, recommended input sizes, educational notes, a
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 **Frontend**
 - [Next.js 16](https://nextjs.org/) — App router, React Server Components
