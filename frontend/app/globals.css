@@ -102,6 +102,11 @@ textarea {
   margin-left: 4px;
 }
 
+/* Complexity labels — positioned relative to each Monaco line */
+.complexity-label {
+  position: relative !important;
+}
+
 .complexity-label::after {
   position: absolute;
   right: 24px;
@@ -109,17 +114,20 @@ textarea {
   bottom: 0;
   display: flex;
   align-items: center;
-  color: rgba(156, 163, 175, 0.4);
   font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   pointer-events: none;
   z-index: 10;
+  opacity: 0.7;
 }
 
-.complexity-o-1::after { content: "O(1)"; }
-.complexity-o-n::after { content: "O(N)"; }
-.complexity-o-n2::after { content: "O(N²)"; }
-.complexity-o-n3::after { content: "O(N³)"; }
-.complexity-o-n4::after { content: "O(N⁴)"; }
-
+.complexity-o-1::after { content: "O(1)"; color: #6b7280; }
+.complexity-o-logn::after { content: "O(log N)"; color: #60a5fa; }
+.complexity-o-n::after { content: "O(N)"; color: #34d399; }
+.complexity-o-nlogn::after { content: "O(N·log N)"; color: #fbbf24; }
+.complexity-o-n2::after { content: "O(N²)"; color: #f97316; }
+.complexity-o-n3::after { content: "O(N³)"; color: #ef4444; }
+.complexity-o-n4::after { content: "O(N⁴)"; color: #dc2626; }
+.complexity-o-exp::after { content: "O(2ᴺ)"; color: #f43f5e; }

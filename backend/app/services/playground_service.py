@@ -19,12 +19,43 @@ from app.schemas.metrics import ExperimentMetricsSnapshot, FunctionMetricCreate,
 from app.services.execution_service import ExecutionService
 
 
+def _compute_loop_nesting(code: str) -> dict[int, int]:
+    """Walk the AST and compute the loop nesting depth for every line."""
+    nesting: dict[int, int] = {}
+    try:
+        tree = __import__("ast").parse(code)
+    except SyntaxError:
+        return nesting
+
+    def _walk(node: object, depth: int = 0) -> None:
+        import ast as _ast
+
+        if not isinstance(node, _ast.AST):
+            return
+
+        is_loop = isinstance(node, (_ast.For, _ast.While))
+        child_depth = depth + 1 if is_loop else depth
+
+        if hasattr(node, "lineno"):
+            line = node.lineno
+            nesting[line] = max(nesting.get(line, 0), depth if not is_loop else child_depth)
+
+        for child in _ast.iter_child_nodes(node):
+            _walk(child, child_depth if is_loop else depth)
+
+    _walk(tree)
+    return nesting
+
+
 def _build_line_metrics_from_instrumentation(
     execution_result: CodeExecutionResult,
+    code: str = "",
 ) -> list[LineMetricCreate]:
     instrumentation = execution_result.instrumentation
     if instrumentation is None:
         return []
+
+    loop_nesting = _compute_loop_nesting(code) if code else {}
 
     loop_iterations_by_line: dict[int, int] = {}
     for loop_key, count in instrumentation.loop_iteration_counts.items():
@@ -46,7 +77,7 @@ def _build_line_metrics_from_instrumentation(
                 execution_count=execution_count,
                 total_time_ms=0.0,
                 percentage_of_total=execution_count / total_line_executions,
-                nesting_depth=0,
+                nesting_depth=loop_nesting.get(line_number, 0),
                 loop_iterations=loop_iterations_by_line.get(line_number, 0),
                 branch_visits=0,
             )
@@ -178,7 +209,7 @@ class PlaygroundService:
                             memory_limit_mb=memory_limit_mb,
                         )
                     )
-                    line_metrics = _build_line_metrics_from_instrumentation(execution)
+                    line_metrics = _build_line_metrics_from_instrumentation(execution, code=code)
                     function_metrics = _build_function_metrics_from_instrumentation(execution)
                     runs.append(
                         PlaygroundExperimentRun(
