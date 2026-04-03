@@ -1,5 +1,5 @@
 # Big O Lab
-<img src="frontend/public/demo.png" alt="Cubiq Demo" width="100%" />
+<img src="frontend/public/demo.png" alt="Big O Lab demo" width="100%" />
 
 An interactive algorithm analysis playground that lets you write code, run empirical experiments across multiple input sizes, and visualize runtime complexity — all from the browser.
 
@@ -17,7 +17,7 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 - **Runtime Visualizations** — Interactive charts (Recharts) showing execution time vs. input size growth curves.
 - **Side-by-Side Comparison** — Compare two consecutive experiments to quantify improvements or regressions.
 - **LLM Explanations** — Optional Ollama Cloud integration for AI-generated complexity breakdowns, with deterministic heuristic fallback.
-- **Session Sharing** — Generate shareable tokens that snapshot your workspace, results, and analysis.
+- **Session Sharing** — Generate signed share tokens that capture your workspace, results, and analysis.
 - **Rate Limiting & Runtime Controls** — IP-based rate limiting, request body size caps, and configurable execution timeouts.
 - **Resizable Panel Layout** — LeetCode-style split-pane workspace built with `react-resizable-panels`.
 
@@ -26,21 +26,23 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Frontend (Next.js)                   │
-│  Monaco Editor · Recharts · Zustand · React Query        │
-│  Port 3000                                               │
-└────────────────────────┬────────────────────────────────┘
-                         │ REST (JSON)
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Backend (FastAPI)                       │
-│  Execution · Experiments · Complexity · Explanations     │
-│  Port 8000                                               │
-├──────────────┬──────────────────────┬───────────────────┤
-│  Redis       │  Ollama Cloud (opt.) │  Local Runner      │
-│  (queues)    │  (LLM explanations)  │  (subprocess exec) │
-└──────────────┴──────────────────────┴───────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js)                     │
+│  Monaco Editor · Recharts · Zustand · React Query         │
+│  Port 3000                                                │
+└─────────────────────────┬──────────────────────────────────┘
+                          │ REST (JSON)
+                          ▼
+┌────────────────────────────────────────────────────────────┐
+│                    Backend (FastAPI)                      │
+│  Execution · Experiments · Complexity · Explanations      │
+│  Shares · Presets · Runtime Controls                      │
+│  Port 8000                                                │
+├──────────────┬─────────────────┬────────────────┬─────────┤
+│ PostgreSQL   │ Redis (opt.)    │ Ollama Cloud   │ Runner  │
+│ SQLAlchemy   │ jobs/cache       │ explanations   │ local   │
+│ + Alembic    │                  │                │ sandbox │
+└──────────────┴─────────────────┴────────────────┴─────────┘
 ```
 
 | Layer | Tech | Purpose |
@@ -50,6 +52,7 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 | **Editor** | Monaco Editor (`@monaco-editor/react`) | Code editing, line decorations |
 | **Charts** | Recharts | Runtime growth curves, metrics |
 | **Backend** | FastAPI, Pydantic v2, Uvicorn | API, execution, analysis |
+| **Persistence** | PostgreSQL, SQLAlchemy, Alembic | Database and migrations |
 | **Queue** | Dramatiq + Redis | Async job processing |
 | **LLM** | Ollama Cloud (optional) | AI complexity explanations |
 
@@ -61,6 +64,7 @@ Big O Lab is an open-access workspace designed for learning and exploring algori
 
 - **Python 3.11+**
 - **Node.js 20+** with **pnpm**
+- **PostgreSQL 16+** for database-backed workflows and migrations
 - **Redis** (optional — only needed for async job queues)
 
 ### Install Dependencies
@@ -105,9 +109,10 @@ make docker-up
 |---------|------|-------|
 | Frontend | `3000` | Production Next.js build |
 | Backend | `8000` | Uvicorn with local execution |
+| PostgreSQL | `5432` | App database |
 | Redis | `6379` | Job queue & caching |
 
-The Docker stack defaults `EXECUTION_BACKEND=local` to avoid Docker-in-Docker complexity.
+The Docker stack runs frontend, backend, PostgreSQL, and Redis together. The frontend image is built to call the backend at `http://localhost:8000/api/v1`.
 
 Other Docker commands:
 
@@ -137,18 +142,26 @@ See [`backend/.env.example`](backend/.env.example) for all options.
 |----------|---------|-------------|
 | `APP_ENV` | `development` | Environment name |
 | `DEBUG` | `true` | Enable debug mode |
-| **Execution** | | |
+| `API_PREFIX` | `/api/v1` | API route prefix |
+| `DB_HOST` | `127.0.0.1` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `bigOlab` | PostgreSQL database name |
+| `DB_USER` | from env | PostgreSQL username |
+| `DB_PASSWORD` | from env | PostgreSQL password |
+| `SECRET_KEY` | `change-this-in-production` | Signing key for share tokens |
 | `EXECUTION_BACKEND` | `auto` | `auto` · `local` · `docker` |
+| `EXECUTION_QUEUE_BACKEND` | `auto` | Async execution backend selection |
 | `EXECUTION_DEFAULT_TIMEOUT_SECONDS` | `3` | Per-run timeout |
 | `EXECUTION_MAX_TIMEOUT_SECONDS` | `5` | Hard timeout cap |
 | `EXECUTION_MEMORY_LIMIT_MB` | `128` | Memory cap per execution |
-| **Explanation** | | |
+| `REQUEST_MAX_BODY_BYTES` | `262144` | Maximum request size |
+| `RATE_LIMIT_ENABLED` | `true` | Enable request throttling |
+| `CACHE_ENABLED` | `true` | Enable response caching |
 | `EXPLANATION_PROVIDER` | `heuristic` | `heuristic` · `ollama_cloud` |
 | `EXPLANATION_ALLOW_FALLBACK` | `true` | Fall back to heuristic if LLM fails |
 | `OLLAMA_API_KEY` | — | Ollama Cloud API key |
 | `OLLAMA_MODEL` | `gpt-oss:120b` | Model identifier |
 | `OLLAMA_API_BASE_URL` | `https://ollama.com/api` | Ollama endpoint |
-| **Infrastructure** | | |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
 | `REDIS_REQUIRED` | `false` | Fail startup if Redis unavailable |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Allowed CORS origins |
@@ -161,15 +174,19 @@ All endpoints are prefixed with `/api/v1`. Interactive docs at `/docs`.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Health check and system status |
+| `/health/live` | GET | Liveness probe |
+| `/health/ready` | GET | Readiness probe with dependency status |
 | `/playground/run` | POST | Execute code with optional instrumentation |
 | `/playground/experiment` | POST | Run code across multiple input sizes |
 | `/playground/status` | GET | Playground status and mode |
 | `/presets` | GET | List all preset algorithms |
+| `/presets/{slug}` | GET | Fetch a single preset |
 | `/explanations/generate` | POST | Generate complexity explanation (LLM/heuristic) |
 | `/comparisons/compare` | POST | Compare two experiment results |
+| `/execution/status` | GET | Inspect execution backend availability |
 | `/execution/run` | POST | Direct code execution |
 | `/execution/jobs` | POST | Submit async execution job |
+| `/execution/jobs/{job_id}` | GET | Fetch queued job status/result |
 | `/shares` | POST | Create a shareable session token |
 | `/shares/resolve` | POST | Resolve a share token |
 
@@ -201,6 +218,10 @@ Each preset includes starter code, recommended input sizes, educational notes, a
 | `make lint` | Lint both codebases |
 | `make test` | Run all tests |
 | `make build` | Production frontend build |
+| `make migrate` | Create a new Alembic migration |
+| `make migrate-up` | Apply pending migrations |
+| `make migrate-down` | Roll back the latest migration |
+| `make migrate-history` | Show migration history |
 | `make docker-up` | Start full Docker stack |
 | `make docker-down` | Stop Docker stack |
 | `make clean` | Remove caches and build artifacts |
@@ -224,10 +245,12 @@ Each preset includes starter code, recommended input sizes, educational notes, a
 - [FastAPI](https://fastapi.tiangolo.com/) — Python web framework
 - [Pydantic v2](https://docs.pydantic.dev/) — Data validation
 - [Uvicorn](https://www.uvicorn.org/) — ASGI server
+- [SQLAlchemy](https://www.sqlalchemy.org/) — ORM and database access
+- [Alembic](https://alembic.sqlalchemy.org/) — Schema migrations
+- [PostgreSQL](https://www.postgresql.org/) — Relational database
 - [Dramatiq](https://dramatiq.io/) — Task queue
 - [Redis](https://redis.io/) — Queue broker & cache
 - [httpx](https://www.python-httpx.org/) — Async HTTP client (Ollama integration)
 
 ---
-
 
