@@ -1,6 +1,7 @@
 # Big O Lab
 <img src="frontend/public/demo.png" alt="Cubiq Demo" width="100%" />
-**An interactive algorithm analysis playground that lets you write code, run empirical experiments across multiple input sizes, and visualize runtime complexity — all from the browser.**
+
+An interactive algorithm analysis playground that lets you write code, run empirical experiments across multiple input sizes, and visualize runtime complexity — all from the browser.
 
 Big O Lab is an open-access workspace designed for learning and exploring algorithmic performance. Paste (or pick) an algorithm, configure input sizes and profiles, and watch the runtime curve emerge in real time. The backend instruments every execution, estimates time complexity, and can optionally call an LLM for natural-language explanations.
 
