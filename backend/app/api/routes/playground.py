@@ -35,12 +35,15 @@ class PlaygroundExperimentRequest(APIModel):
     instrument: bool = True
     timeout_seconds: int | None = Field(default=None, ge=1, le=30)
     memory_limit_mb: int | None = Field(default=None, ge=32, le=1024)
+    entry_point: str | None = Field(default=None, description="Name of the function to call as the experiment entry point. Auto-detected if not provided.")
 
     @field_validator("input_sizes")
     @classmethod
     def validate_input_sizes(cls, value: list[int]) -> list[int]:
         if any(size <= 0 for size in value):
             raise ValueError("All input sizes must be positive integers")
+        if value and max(value) < 10:
+            raise ValueError("Input sizes should be at least 10 for meaningful complexity analysis")
         return value
 
 
@@ -73,4 +76,5 @@ def run_playground_experiment(payload: PlaygroundExperimentRequest) -> Playgroun
         instrument=payload.instrument,
         timeout_seconds=payload.timeout_seconds,
         memory_limit_mb=payload.memory_limit_mb,
+        entry_point=payload.entry_point,
     )

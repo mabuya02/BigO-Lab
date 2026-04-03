@@ -20,6 +20,7 @@ class CodeExecutionRequest(APIModel):
     memory_limit_mb: int | None = Field(default=None, ge=32, le=1024)
     backend: ExecutionBackend = "auto"
     instrument: bool = False
+    entry_point: str | None = Field(default=None, description="Function name to call as the entry point. Auto-detected if not provided.")
 
     @field_validator("language")
     @classmethod

@@ -90,7 +90,10 @@ class ExecutionService:
         if payload.instrument:
             try:
                 instrumented = instrument_source(payload.code)
-                code_to_run = cls._build_instrumented_runtime_source(instrumented.instrumented_source)
+                code_to_run = cls._build_instrumented_runtime_source(
+                    instrumented.instrumented_source,
+                    forced_entry_point=payload.entry_point,
+                )
                 instrumentation_metadata = instrumented.metadata
             except SyntaxError as exc:
                 return CodeExecutionResult(
@@ -260,14 +263,17 @@ class ExecutionService:
         return body[:index], body[index:]
 
     @classmethod
-    def _build_instrumented_runtime_source(cls, instrumented_source: str) -> str:
+    def _build_instrumented_runtime_source(
+        cls, instrumented_source: str, *, forced_entry_point: str | None = None
+    ) -> str:
         tree = ast.parse(instrumented_source, mode="exec")
         prologue, body = cls._split_module_prologue(tree.body)
-        
+
         # Check if the code has any top-level expressions or calls that might act as an entry point.
         # Ignore tracker-injected calls (_big_o_tracker.*) since they are not real entry points.
         has_top_level_call = False
         last_function_name = None
+        function_names: list[str] = []
 
         def _is_tracker_call(node: ast.stmt) -> bool:
             """Return True if the node is an injected _big_o_tracker.* call."""
@@ -284,15 +290,20 @@ class ExecutionService:
         for node in body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 last_function_name = node.name
+                function_names.append(node.name)
             elif isinstance(node, (ast.Expr, ast.Call)) and not _is_tracker_call(node):
                 has_top_level_call = True
-                
+
         auto_entry_code = ""
-        # If no top-level call found, and we have a function named 'run' or the last function defined,
-        # inject a caller that reads from stdin and passes it to that function.
+        # If no top-level call found, inject a caller that reads from stdin.
+        # Priority: forced_entry_point > "run" convention > last defined function.
         if not has_top_level_call and last_function_name:
-            # We look for 'run' first as a convention, otherwise use the last defined function
-            entry_name = "run" if any(isinstance(n, ast.FunctionDef) and n.name == "run" for n in body) else last_function_name
+            if forced_entry_point and forced_entry_point in function_names:
+                entry_name = forced_entry_point
+            elif "run" in function_names:
+                entry_name = "run"
+            else:
+                entry_name = last_function_name
             auto_entry_code = f"""
 import sys as _big_o_sys
 import json as _big_o_json

@@ -187,6 +187,7 @@ class PlaygroundService:
         instrument: bool = True,
         timeout_seconds: int | None = None,
         memory_limit_mb: int | None = None,
+        entry_point: str | None = None,
     ) -> PlaygroundExperimentResponse:
         def factory() -> PlaygroundExperimentResponse:
             generator = InputGenerator()
@@ -208,6 +209,7 @@ class PlaygroundService:
                             instrument=instrument,
                             timeout_seconds=timeout_seconds,
                             memory_limit_mb=memory_limit_mb,
+                            entry_point=entry_point,
                         )
                     )
                     line_metrics = _build_line_metrics_from_instrumentation(execution, code=code)
