@@ -136,6 +136,7 @@ class PlaygroundExperimentResponse(APIModel):
     runs: list[PlaygroundExperimentRun]
     metrics_snapshot: ExperimentMetricsSnapshot
     complexity_estimate: ComplexityEstimateRead | None = None
+    operations_complexity_estimate: ComplexityEstimateRead | None = None
     orchestration_runtime_ms: float = 0.0
 
 
@@ -236,6 +237,7 @@ class PlaygroundService:
 
             snapshot = build_experiment_metrics_snapshot(aggregated_runs)
             complexity_estimate = None
+            operations_complexity_estimate = None
             if aggregated_runs:
                 analysis = ComplexityService.estimate_complexity(aggregated_runs, metric_name="runtime_ms")
                 complexity_estimate = ComplexityEstimateRead.model_validate(
@@ -253,6 +255,55 @@ class PlaygroundService:
                         "updated_at": analysis.created_at,
                     }
                 )
+
+                # Build per-input-size operation totals by averaging across repetitions.
+                # Total ops = sum of all line execution counts for that run.
+                ops_by_size: dict[int, list[int]] = {}
+                for agg in aggregated_runs:
+                    size = agg["input_size"]
+                    line_metrics_list = agg.get("line_metrics") or []
+                    total_ops = sum(
+                        m.get("execution_count", 0) if isinstance(m, dict) else getattr(m, "execution_count", 0)
+                        for m in line_metrics_list
+                    )
+                    # Also add loop iteration counts which are a better signal
+                    loop_total = sum(
+                        m.get("loop_iterations", 0) if isinstance(m, dict) else getattr(m, "loop_iterations", 0)
+                        for m in line_metrics_list
+                    )
+                    ops_by_size.setdefault(size, []).append(total_ops + loop_total)
+
+                ops_samples = [
+                    {"input_size": size, "total_operations": sum(counts) / len(counts)}
+                    for size, counts in sorted(ops_by_size.items())
+                    if counts and sum(counts) > 0
+                ]
+
+                if len(ops_samples) >= 3:
+                    try:
+                        ops_analysis = ComplexityService.estimate_complexity(
+                            ops_samples,
+                            metric_name="total_operations",
+                            value_key="total_operations",
+                        )
+                        operations_complexity_estimate = ComplexityEstimateRead.model_validate(
+                            {
+                                "id": "playground-operations-estimate",
+                                "experiment_id": None,
+                                "metric_name": ops_analysis.metric_name,
+                                "estimated_class": ops_analysis.estimated_class,
+                                "confidence": ops_analysis.confidence,
+                                "sample_count": ops_analysis.sample_count,
+                                "explanation": ops_analysis.explanation,
+                                "alternatives": [asdict(alternative) for alternative in ops_analysis.alternatives],
+                                "evidence": ops_analysis.evidence,
+                                "created_at": ops_analysis.created_at,
+                                "updated_at": ops_analysis.created_at,
+                            }
+                        )
+                    except (ValueError, ZeroDivisionError):
+                        pass
+
             return PlaygroundExperimentResponse(
                 code=code,
                 backend_requested=backend,
@@ -263,6 +314,7 @@ class PlaygroundService:
                 runs=runs,
                 metrics_snapshot=snapshot,
                 complexity_estimate=complexity_estimate,
+                operations_complexity_estimate=operations_complexity_estimate,
             )
 
         measured = measure(factory)

@@ -264,15 +264,28 @@ class ExecutionService:
         tree = ast.parse(instrumented_source, mode="exec")
         prologue, body = cls._split_module_prologue(tree.body)
         
-        # Check if the code has any top-level expressions or calls that might act as an entry point
+        # Check if the code has any top-level expressions or calls that might act as an entry point.
+        # Ignore tracker-injected calls (_big_o_tracker.*) since they are not real entry points.
         has_top_level_call = False
         last_function_name = None
-        
+
+        def _is_tracker_call(node: ast.stmt) -> bool:
+            """Return True if the node is an injected _big_o_tracker.* call."""
+            if not isinstance(node, ast.Expr):
+                return False
+            call = node.value
+            if not isinstance(call, ast.Call):
+                return False
+            func = call.func
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                return func.value.id == "_big_o_tracker"
+            return False
+
         for node in body:
-            if isinstance(node, (ast.Expr, ast.Call)):
-                has_top_level_call = True
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 last_function_name = node.name
+            elif isinstance(node, (ast.Expr, ast.Call)) and not _is_tracker_call(node):
+                has_top_level_call = True
                 
         auto_entry_code = ""
         # If no top-level call found, and we have a function named 'run' or the last function defined,
