@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(wc -l /Users/mabuya/Developer/my-projects/Big-O-Lab/backend/app/**/*.py)"
-    ]
-  }
-}

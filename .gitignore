@@ -15,6 +15,7 @@ Thumbs.db
 
 # ── Claude ──
 .claude/todos/
+.claude/
 
 # ── Python (backend) ──
 __pycache__/
