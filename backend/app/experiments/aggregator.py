@@ -163,18 +163,27 @@ def aggregate_runs(runs: Sequence[Any]) -> MetricSummary:
                 dominant_function_total = total_time_ms
                 dominant_function_name = str(_get_value(function_metric, "function_name"))
 
+    # Average runtime and operations across repetitions for each unique input size.
+    runtime_by_size: dict[int, list[float]] = {}
+    for size, runtime in zip(input_sizes, runtimes):
+        runtime_by_size.setdefault(size, []).append(runtime)
     runtime_points = [
-        MetricPoint(input_size=input_size, value=runtime)
-        for input_size, runtime in sorted(zip(input_sizes, runtimes), key=lambda item: item[0])
+        MetricPoint(input_size=size, value=mean(values))
+        for size, values in sorted(runtime_by_size.items())
     ]
-    operation_points = [
-        MetricPoint(
-            input_size=_to_int(_get_value(run, "input_size")),
-            value=sum(_to_int(_get_value(metric, "execution_count")) for metric in _get_value(run, "line_metrics", []) or []),
+
+    ops_by_size: dict[int, list[float]] = {}
+    for run in runs:
+        size = _to_int(_get_value(run, "input_size"))
+        total_ops = sum(
+            _to_int(_get_value(metric, "execution_count"))
+            for metric in (_get_value(run, "line_metrics", []) or [])
         )
-        for run in runs
+        ops_by_size.setdefault(size, []).append(float(total_ops))
+    operation_points = [
+        MetricPoint(input_size=size, value=mean(values))
+        for size, values in sorted(ops_by_size.items())
     ]
-    operation_points.sort(key=lambda point: point.input_size)
 
     return MetricSummary(
         total_runs=len(runs),
