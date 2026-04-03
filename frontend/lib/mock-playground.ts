@@ -861,6 +861,7 @@ function buildPreviewExperimentResponse(payload: {
     runs,
     metrics_snapshot: metricsSnapshot,
     complexity_estimate: complexityEstimate,
+    operations_complexity_estimate: null,
     orchestration_runtime_ms: round(metricsSnapshot.summary.total_runtime_ms * 0.18 + 11, 3),
   };
 }

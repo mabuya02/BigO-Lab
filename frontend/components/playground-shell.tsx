@@ -96,11 +96,17 @@ export function PlaygroundShell() {
       startTransition(() => { publishExperiment(payload); setField("activeTab", "runtime"); });
 
       const requests: Promise<unknown>[] = [];
-      if (payload.complexity_estimate) {
+      const bestComplexityEstimate = (() => {
+        const rt = payload.complexity_estimate;
+        const ops = payload.operations_complexity_estimate;
+        if (ops && rt && ops.confidence > rt.confidence) return ops;
+        return ops ?? rt ?? null;
+      })();
+      if (bestComplexityEstimate) {
         requests.push(
           explanationMutation.mutateAsync({
             metrics_snapshot: payload.metrics_snapshot,
-            complexity_estimate: payload.complexity_estimate,
+            complexity_estimate: bestComplexityEstimate,
             max_sections: 5,
           })
         );
@@ -109,17 +115,23 @@ export function PlaygroundShell() {
       }
 
       if (previousExperiment) {
+        const prevBestEstimate = (() => {
+          const rt = previousExperiment.complexity_estimate;
+          const ops = previousExperiment.operations_complexity_estimate;
+          if (ops && rt && ops.confidence > rt.confidence) return ops;
+          return ops ?? rt ?? null;
+        })();
         requests.push(
           comparisonMutation.mutateAsync({
             left: {
               label: previousExperiment.code.slice(0, 18) || "previous",
               metrics: previousExperiment.metrics_snapshot,
-              complexity_estimate: toComparisonComplexity(previousExperiment.complexity_estimate),
+              complexity_estimate: toComparisonComplexity(prevBestEstimate),
             },
             right: {
               label: payload.code.slice(0, 18) || "current",
               metrics: payload.metrics_snapshot,
-              complexity_estimate: toComparisonComplexity(payload.complexity_estimate),
+              complexity_estimate: toComparisonComplexity(bestComplexityEstimate),
             },
           })
         );
@@ -268,7 +280,15 @@ export function PlaygroundShell() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-hidden bg-[#1e1e1e]">
-                  <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} complexityEstimate={experimentResponse?.complexity_estimate ?? null} />
+                  <MonacoSurface code={code} onChange={(next) => setField("code", next)} lineMetrics={lineMetrics} complexityEstimate={
+                  // Prefer operations estimate (immune to timer noise) if it exists and has higher confidence
+                  (() => {
+                    const rt = experimentResponse?.complexity_estimate ?? null;
+                    const ops = experimentResponse?.operations_complexity_estimate ?? null;
+                    if (ops && rt && ops.confidence > rt.confidence) return ops;
+                    return ops ?? rt;
+                  })()
+                } />
                 </div>
               </Panel>
 

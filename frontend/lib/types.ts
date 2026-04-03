@@ -134,6 +134,7 @@ export interface PlaygroundExperimentResponse {
   runs: PlaygroundExperimentRun[];
   metrics_snapshot: ExperimentMetricsSnapshot;
   complexity_estimate: ComplexityEstimate | null;
+  operations_complexity_estimate: ComplexityEstimate | null;
   orchestration_runtime_ms: number;
 }
 

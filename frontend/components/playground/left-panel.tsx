@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   BrainCircuit,
   Database,
   FileText,
@@ -17,7 +18,7 @@ import { startTransition, useState } from "react";
 import { Panel } from "react-resizable-panels";
 import type { ExecutionBackend, InputKind, InputProfile, PresetCatalogRead, PresetRead } from "@/lib/types";
 import { usePlaygroundStore } from "@/store/playground-store";
-import { TabButton, buildSampleInput } from "./shared";
+import { TabButton, buildSampleInput, parseInputSizes } from "./shared";
 
 export function LeftPanel({
   presetsQuery,
@@ -49,6 +50,8 @@ export function LeftPanel({
   const lineMetrics = experimentResponse?.metrics_snapshot.line_metrics ?? [];
   const topFunctions = experimentResponse?.metrics_snapshot.function_metrics.slice(0, 4) ?? [];
   const codeLines = code.split("\n");
+  const parsedInputSizes = parseInputSizes(inputSizesText);
+  const hasSmallInputs = parsedInputSizes.length > 0 && parsedInputSizes.every((n) => n < 100);
 
   return (
     <Panel defaultSize={25} minSize={20} className="rounded-xl border border-white/10 bg-[#121212] flex flex-col overflow-hidden shadow-2xl sidebar-panel">
@@ -146,6 +149,12 @@ export function LeftPanel({
                   placeholder="e.g. 100, 200, 400, 800"
                 />
                 <p className="text-[10px] text-gray-500">Comma-separated input counts. Ensure exponential spacing for clear scaling curves.</p>
+                {hasSmallInputs && (
+                  <div className="flex items-start gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-[10px] text-yellow-400 leading-relaxed">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                    <span>All input sizes are below 100. Runtime measurements may be dominated by noise — use the <strong>Operations</strong> complexity estimate for accuracy, or add larger sizes (e.g. 500, 1000).</span>
+                  </div>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -274,19 +283,42 @@ export function LeftPanel({
                 )}
               </div>
 
-              {experimentResponse?.complexity_estimate ? (
-                <div>
-                  <p className="text-4xl font-bold tracking-tight text-white font-mono drop-shadow-md">
-                    {experimentResponse.complexity_estimate.estimated_class}
-                  </p>
-                  <p className="mt-3 text-sm leading-relaxed text-gray-300">
-                    {experimentResponse.complexity_estimate.explanation}
-                  </p>
-                  <div className="mt-4 flex items-center gap-2">
-                     <span className="inline-flex items-center rounded-sm bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-400 ring-1 ring-white/10">
-                       R² Fit Confidence: <strong className="text-white ml-1">{Math.round(experimentResponse.complexity_estimate.confidence * 100)}%</strong>
-                     </span>
-                  </div>
+                {experimentResponse?.complexity_estimate || experimentResponse?.operations_complexity_estimate ? (
+                <div className="space-y-4">
+                  {experimentResponse.complexity_estimate && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Runtime-based</p>
+                      <p className="text-4xl font-bold tracking-tight text-white font-mono drop-shadow-md">
+                        {experimentResponse.complexity_estimate.estimated_class}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-sm bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-400 ring-1 ring-white/10">
+                          Confidence: <strong className="text-white ml-1">{Math.round(experimentResponse.complexity_estimate.confidence * 100)}%</strong>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {experimentResponse.operations_complexity_estimate && (
+                    <div className="rounded-lg border border-[#00b8a3]/20 bg-[#00b8a3]/5 p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#00b8a3] mb-1">Operations-based (more accurate)</p>
+                      <p className="text-3xl font-bold tracking-tight text-white font-mono">
+                        {experimentResponse.operations_complexity_estimate.estimated_class}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-sm bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-400 ring-1 ring-white/10">
+                          Confidence: <strong className="text-[#00b8a3] ml-1">{Math.round(experimentResponse.operations_complexity_estimate.confidence * 100)}%</strong>
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[10px] text-gray-500 leading-relaxed">
+                        Fitted against AST hit counts — immune to timer noise at small input sizes.
+                      </p>
+                    </div>
+                  )}
+                  {experimentResponse.complexity_estimate && (
+                    <p className="text-xs leading-relaxed text-gray-400">
+                      {experimentResponse.complexity_estimate.explanation}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center text-gray-500">
