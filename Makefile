@@ -5,7 +5,14 @@ SHELL := /bin/bash
 # ── Development ──
 
 dev:
-	@make -j2 dev-backend dev-frontend
+	@set -m; \
+	trap 'trap - INT TERM EXIT; \
+		[ -n "$$backend_pid" ] && kill -- -$$backend_pid 2>/dev/null; \
+		[ -n "$$frontend_pid" ] && kill -- -$$frontend_pid 2>/dev/null; \
+		wait' INT TERM EXIT; \
+	(cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000) & backend_pid=$$!; \
+	(cd frontend && NEXT_PUBLIC_PLAYGROUND_API_MODE=backend NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1 pnpm dev) & frontend_pid=$$!; \
+	wait
 
 dev-backend:
 	cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000
