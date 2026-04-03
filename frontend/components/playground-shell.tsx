@@ -296,7 +296,22 @@ export function PlaygroundShell() {
                 <div className="h-[2px] w-8 rounded-full bg-white/20 transition-colors" />
               </PanelResizeHandle>
 
-              <BottomPanel feedback={feedback} latestExecution={latestExecution} selectedPreset={selectedPreset} />
+              <BottomPanel
+                feedback={feedback}
+                latestExecution={latestExecution}
+                selectedPreset={selectedPreset}
+                isPending={runMutation.isPending}
+                onRun={(stdinValue) =>
+                  runMutation.mutate({
+                    code,
+                    input: stdinValue,
+                    backend,
+                    instrument,
+                    timeout_seconds: timeoutSeconds,
+                    memory_limit_mb: memoryLimitMb,
+                  })
+                }
+              />
             </PanelGroup>
           </Panel>
         </PanelGroup>
